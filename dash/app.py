@@ -8,7 +8,8 @@ import dash_html_components as html
 import dateutil
 import plotly.graph_objs as go
 import pandas as pd
-
+from datetime import datetime as dt
+from datetime import date, timedelta
 
 app = dash.Dash()
 app.css.append_css({
@@ -21,14 +22,14 @@ app.css.append_css({
 #                                                            #
 ##############################################################
 
-kickstarter_df = pd.read_csv('kickstarter-cleaned.csv', parse_dates=True)
-kickstarter_df['broader_category'] = kickstarter_df['category_slug'].str.split('/').str.get(0)
-kickstarter_df['created_at'] = pd.to_datetime(kickstarter_df['created_at'])
+orion_df = pd.read_csv('kickstarter-cleaned.csv', parse_dates=True)
+orion_df['broader_category'] = orion_df['category_slug'].str.split('/').str.get(0)
+orion_df['created_at'] = pd.to_datetime(orion_df['created_at'])
 
-kickstarter_df_sub = kickstarter_df.sample(10000)
+orion_df_sub = orion_df.sample(10000)
 
 
-CATEGORIES = kickstarter_df['broader_category'].unique()
+CATEGORIES = orion_df['broader_category'].unique()
 COLUMNS = ['launched_at', 'deadline', 'blurb', 'usd_pledged', 'state', 'spotlight', 'staff_pick', 'category_slug', 'backers_count', 'country']
 # Picked with http://tristen.ca/hcl-picker/#/hlc/6/1.05/251C2A/E98F55
 COLORS = ['#7DFB6D', '#C7B815', '#D4752E', '#C7583F']
@@ -43,19 +44,34 @@ STATES = ['successful', 'suspended', 'failed', 'canceled']
 
 
 app.layout = html.Div(children=[
-    html.H1(children='Kickstarter Dashboard', style={
+    html.H2(children='Orion Dashboard', style={
         'textAlign': 'center',
     }),
+    # Date Picker
+    html.Div([
+        dcc.DatePickerRange(
+            id='date-range-picker',
+            min_date_allowed = orion_df['created_at'].min().to_pydatetime(),
+            max_date_allowed = orion_df['created_at'].max().to_pydatetime(),
+            initial_visible_month = dt(orion_df['created_at'].max().to_pydatetime().year,
+                                       orion_df['created_at'].max().to_pydatetime().month, 1),
+            start_date = (orion_df['created_at'].max() - timedelta(6)).to_pydatetime(),
+            end_date = orion_df['created_at'].max().to_pydatetime(),
+    )], className="row ", style={'marginTop': 30, 'marginBottom': 15}),
+
+    # html.Div(id='output-container-date-picker-range-paid-search')
+    # ], className="row ", style={'marginTop': 30, 'marginBottom': 15}),
+
     dcc.Dropdown(
         id='categories',
-        options=[{'label': i, 'value': i} for i in kickstarter_df['broader_category'].unique()],
+        options=[{'label': i, 'value': i} for i in orion_df['broader_category'].unique()],
         multi=True
     ),
     dcc.Graph(
-        id='usd-pledged-vs-date',
+        id='speakers-in-daterange',
     ),
     dcc.Graph(
-        id='count-state-vs-category',
+        id='stats-in-daterange',
     )
 ])
 
@@ -68,22 +84,24 @@ app.layout = html.Div(children=[
 
 
 @app.callback(
-    dash.dependencies.Output('usd-pledged-vs-date', 'figure'),
+    dash.dependencies.Output('speakers-in-daterange', 'figure'),
     [
         dash.dependencies.Input('categories', 'value'),
+        
     ])
+
 def update_scatterplot(categories):
     if categories is None or categories == []:
         categories = CATEGORIES
 
-    sub_df = kickstarter_df_sub[(kickstarter_df_sub['broader_category'].isin(categories))]
+    sub_df = orion_df_sub[(orion_df_sub['broader_category'].isin(categories))]
 
     return {
         'data': [
             go.Scatter(
-                x=sub_df[(kickstarter_df_sub.state == state)]['created_at'],
-                y=sub_df[(kickstarter_df_sub.state == state)]['usd_pledged'],
-                text=sub_df[(kickstarter_df_sub.state == state)]['name'],
+                x=sub_df[(orion_df_sub.state == state)]['created_at'],
+                y=sub_df[(orion_df_sub.state == state)]['usd_pledged'],
+                text=sub_df[(orion_df_sub.state == state)]['name'],
                 mode='markers',
                 opacity=0.7,
                 marker={
@@ -105,10 +123,10 @@ def update_scatterplot(categories):
 
 
 @app.callback(
-    dash.dependencies.Output('count-state-vs-category', 'figure'),
+    dash.dependencies.Output('stats-in-daterange', 'figure'),
     [
         dash.dependencies.Input('categories', 'value'),
-        dash.dependencies.Input('usd-pledged-vs-date', 'relayoutData')
+        dash.dependencies.Input('speakers-in-daterange', 'relayoutData')
     ])
 def update_bar_chart(categories, relayoutData):
     if categories is None or categories == []:
@@ -121,9 +139,9 @@ def update_bar_chart(categories, relayoutData):
         y0 = 10 ** relayoutData['yaxis.range[0]']
         y1 = 10 ** relayoutData['yaxis.range[1]']
 
-        sub_df = kickstarter_df[kickstarter_df.created_at.between(x0, x1) & kickstarter_df.usd_pledged.between(y0, y1)]
+        sub_df = orion_df[orion_df.created_at.between(x0, x1) & orion_df.usd_pledged.between(y0, y1)]
     else:
-        sub_df = kickstarter_df
+        sub_df = orion_df
 
     stacked_barchart_df = (
         sub_df[sub_df['broader_category'].isin(categories)]['state'].groupby(sub_df['broader_category'])
