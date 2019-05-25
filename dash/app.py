@@ -55,7 +55,7 @@ app.layout = html.Div(children=[
             max_date_allowed = orion_df['created_at'].max().to_pydatetime(),
             initial_visible_month = dt(orion_df['created_at'].max().to_pydatetime().year,
                                        orion_df['created_at'].max().to_pydatetime().month, 1),
-            start_date = (orion_df['created_at'].max() - timedelta(6)).to_pydatetime(),
+            start_date = orion_df['created_at'].min().to_pydatetime(),
             end_date = orion_df['created_at'].max().to_pydatetime(),
     )], className="row ", style={'marginTop': 30, 'marginBottom': 15}),
 
@@ -87,14 +87,19 @@ app.layout = html.Div(children=[
     dash.dependencies.Output('speakers-in-daterange', 'figure'),
     [
         dash.dependencies.Input('categories', 'value'),
-        
+        dash.dependencies.Input('date-range-picker', 'start_date'),
+        dash.dependencies.Input('date-range-picker', 'end_date'),
     ])
 
-def update_scatterplot(categories):
+def update_scatterplot(categories, start_date, end_date):
     if categories is None or categories == []:
         categories = CATEGORIES
 
+    start_date = dt.strptime(start_date, '%Y-%m-%d %H:%M:%S')
+    end_date = dt.strptime(end_date, '%Y-%m-%d %H:%M:%S')
+
     sub_df = orion_df_sub[(orion_df_sub['broader_category'].isin(categories))]
+    sub_df = sub_df.loc[[start_date <= x <= end_date for x in sub_df['created_at']]]
 
     return {
         'data': [
