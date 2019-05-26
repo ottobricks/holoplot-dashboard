@@ -1,1 +1,0 @@
-web: bokeh serve app.py --port=$PORT --allow-websocket-origin=bokeh-dashboard-example.herokuapp.com

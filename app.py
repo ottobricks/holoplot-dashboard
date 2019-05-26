@@ -30,7 +30,11 @@ for txt_file in os.listdir('Data/'):
     list_of_dicts.append(parse_test_results(from_file))
 # creates the dataframe
 orion_df = pd.DataFrame(list_of_dicts)
-orion_df.created_at = pd.to_datetime(orion_df.created_at, format='%d.%m.%Y %H.%M.%S')
+
+# standardizes the timestamp format in 'created_at' and transforms to datetime
+orion_df.created_at = clean_timestamp_series(orion_df.created_at)
+orion_df.created_at = orion_df.created_at.apply(lambda x: '.'.join([y.zfill(2) for y in str(x).split('.')]))
+orion_df.created_at = pd.to_datetime(orion_df.created_at, format='%d.%m.%Y.%H.%M.%S')
 
 
 
@@ -220,6 +224,11 @@ def parse_test_results(list_of_strings):
             tmpd['id'] = model_no.search(''.join(value.split())).group(0)
     
     return tmpd
+
+def clean_timestamp_series(series):
+    '''
+    '''
+    return series.apply(lambda x: re.search(r'\d+.\d+.\d+.\d+.\d+.\d+', str(x)).group(0) if not pd.isnull(x) else x)
 
 ##############################################################
 #                                                            #

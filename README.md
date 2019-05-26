@@ -1,12 +1,15 @@
-# Bokeh vs Dash: a comparison by example
+# Kickstarter Dashboard in Dash
 
-![Dash is on the right-hand side](bokehvsdash.png)
+This dashboard contains three widgets:
 
-A companion repository to [my article that compares Bokeh to Dash](https://blog.sicara.com/bokeh-dash-best-dashboard-framework-python-shiny-alternative-c5b576375f7f).
+- A multi selection box to pick the category of the kickstarter projects
+- A graph showing the states of the projects and the money invested in them relative to time
+- A breakdown of these projects grouped by category
 
-Instructions on how to run the code are in the article.
+The events linking those widgets are:
 
-To deploy on Heroku use:
+- Multi selection box -> scatter plot
+- Multi selection box -> bar graph
+- Selection on the scatter plot -> bar graph
 
-- For Bokeh: `git subtree push --prefix bokeh heroku-bokeh master`
-- For Dash: `git subtree push --prefix dash heroku-dash master`
+Run the example locally using `python app.py` (Python 3).
