@@ -1,17 +1,39 @@
-import os, re, logging
+import os, re
 import pandas as pd
 
-logging.basicConfig(filename='output.log', filemode='w',level=logging.WARNING)
-
-def load_test_results(file_name):
+def parse_test_results(file_name):
     '''
     '''
-    with open('Data/{}'.format(file_name), 'r') as f:
-        from_file = f.read()
-     
-        return [x.strip().lower() for x in from_file.split('\n') if x][1:]
+    min_pattern = ['response bad', 'polarity bad', 'rub+buzz bad', 'thd bad', 'created_at 17.10.2018 13.07.41', 'unit n. f072-00737 bad'] 
+    timestamp = re.compile(r'(\d+\.){2}\d+') 
+      
+    for fname in os.listdir('Data/'): 
+        with open('Data/{}'.format(fname), 'r') as f: 
+            from_file = f.read() 
+    
+    tmp = [x.strip().lower() for x in from_file.split('\n') if x][1:] 
+    tmp = ['created_at {}'.format(x) if timestamp.match(x) else x for x in tmp] 
+    
+    try: 
+        if len(tmp) < 6: 
+            missing_features = list(set([x.split(' ',1)[0] for x in min_pattern]) - set([x.split(' ',1)[0] for x in tmp])) 
+    
+            # if unit is missing and all other 4 features are present  
+            if (('unit' in missing_features) and (not[x for x in missing_features if x in ['response', 'polarity', 'rub+buzz', 'thd']])):
+    
+                if any('bad' in x for x in tmp): 
+                    overall = 'bad' 
+                else: 
+                    overall = 'good' 
+                tmp.append('unit n. {} {}'.format(fname.split('.',1)[0], overall)) 
+    
+    except Exception as e: 
+        print('ERROR:', e) 
+        print(tmp, len(tmp))
 
-def parse_test_results(list_of_strings): 
+    return tmp
+
+def extend_test_results(list_of_strings): 
     '''
     '''
     tmpd = {}
@@ -65,10 +87,10 @@ def parse_timestamp_series(series):
                 raise ValueError('Timestamp NaT does not match format.')
         
         except ValueError as e:
-            logging.warning('TIMESTAMP_PARSE_WARNING:', e)
+            print('TIMESTAMP_PARSE_WARNING:', e)
             if 'does not match format' in str(e):
                 NaT_FLAG = 'NaT' in str(e)
-                logging.info('... attempting to fix the format:')
+                print('... attempting to fix the format:')
         
                 if not NaT_FLAG:
                     date_pattern = re.compile(r'\d+.\d+.\d+.\d+.\d+.\d+')
@@ -82,10 +104,10 @@ def parse_timestamp_series(series):
                         tmp.append(pd.to_datetime('{}.{}.{}'.format(second, first, tail), format='%d.%m.%Y.%H.%M.%S'))
                     
                     except Exception as ex:
-                        logging.error('\tFAILED to handle timestamp format exception: ', ex)
+                        print('\tFAILED to handle timestamp format exception: ', ex)
                     
                     else:
-                        logging.info('\tSUCCEEDED in handling exception for timestamp format.')
+                        print('\tSUCCEEDED in handling exception for timestamp format.')
                         pass
                 
                 else:
@@ -102,12 +124,32 @@ def parse_timestamp_series(series):
                         tmp.append(pd.to_datetime(new_date, format='%d.%m.%Y.%H.%M.%S'))
                     
                     except Exception as ex:
-                        logging.error('\tFAILED to handle timestamp format exception: ', ex)
+                        print('\tFAILED to handle timestamp format exception: ', ex)
                     
                     else:
-                        logging.info('\tSUCCEEDED in handling exception for timestamp format.')
+                        print('\tSUCCEEDED in handling exception for timestamp format.')
                         pass
     return tmp
+
+def parse_benchmark_state(df):
+    '''
+    Parses the number of failed tests for each Orion device in the dataframe
+    Returns a list of states that can be used to create a new column in the dataframe
+    '''
+    list_of_states = []
+    for index, value in df.iterrows():
+        try:
+            if 'good' in str(value.overall):
+                list_of_states.append('passed')
+        
+            else:
+                list_of_states.append('failed_{}'.format(value.value_counts().bad - 1))
+
+        except Exception as e:
+            print('BENCHMARK_STATE_PARSER_ERROR:', value)
+            print(pd.isnull(value).value_counts())
+
+    return list_of_states
 
 def load_testresults_todataframe(path):
     '''
@@ -115,9 +157,9 @@ def load_testresults_todataframe(path):
     # parses the text files into a list of dictionaries that will be used to create the dataframe
     list_of_dicts = []
     for txt_file in os.listdir(path):
-        from_file = load_test_results(txt_file)
+        from_file = parse_test_results(txt_file)
 
-        list_of_dicts.append(parse_test_results(from_file))
+        list_of_dicts.append(extend_test_results(from_file))
     
     # creates the dataframe
     df = pd.DataFrame(list_of_dicts)
@@ -130,20 +172,8 @@ def load_testresults_todataframe(path):
     df.created_at = clean_timestamp_series(df.created_at)
     df.created_at = pad_timestamp_series(df.created_at)
     df.created_at = parse_timestamp_series(df.created_at)
+    df.dropna(how='all', inplace=True)
+    df['state'] = parse_benchmark_state(df)
 
     return df
 
-def parse_benchmark_state(df):
-    '''
-    Parses the number of failed tests for each Orion device in the dataframe
-    Returns a list of states that can be used to create a new column in the dataframe
-    '''
-    list_of_states = []
-    for index, value in df.iterrows():
-        if 'good' in str(value.overall):
-            list_of_states.append('passed')
-        
-        else:
-            list_of_states.append('failed_{}'.format(value.value_counts().bad - 1))
-    
-    return list_of_states
