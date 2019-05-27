@@ -34,7 +34,20 @@ def parse_test_results(file_name):
                     tmp = ['{} good'.format(x.split(' ',1)[0]) if x.split(' ',1)[0] in main_features else x for x in main_features+tmp]
                     tmp = list(OrderedDict.fromkeys(tmp))
                 
-                print('FIXED: ',tmp)
+                    print('FIXED: ',tmp)
+
+                # else if overall is 'bad' and main_features values are missing, infer 'bad' for them
+                elif 'bad' == ''.join([re.search('good|bad', x).group(0) for x in tmp if 'unit' in x]): 
+                    tmp = ['{} bad*'.format(x.split(' ',1)[0])
+                        if x.split(' ',1)[0] in (main_features and missing_features)
+                        else x for x in main_features+tmp]
+
+                    tmp = list(OrderedDict.fromkeys(tmp))
+                    tmp = [x for x in tmp if re.search('good|bad', x)!=None]
+                    print('FIXED:', tmp)
+
+                else:
+                    raise ValueError('Input file {} has missing values that can\'t be handled yet'.format(fname))
         
         except Exception as e:
             print('ERROR:', e)
