@@ -1,35 +1,44 @@
 import os, re
 import pandas as pd
+from collections import OrderedDict
 
 def parse_test_results(file_name):
     '''
     '''
-    min_pattern = ['response bad', 'polarity bad', 'rub+buzz bad', 'thd bad', 'created_at 17.10.2018 13.07.41', 'unit n. f072-00737 bad'] 
-    timestamp = re.compile(r'(\d+\.){2}\d+') 
-      
-    for fname in os.listdir('Data/'): 
-        with open('Data/{}'.format(fname), 'r') as f: 
-            from_file = f.read() 
+    min_pattern = ['response bad', 'polarity bad', 'rub+buzz bad', 'thd bad', 'created_at 17.10.2018 13.07.41', 'unit n. f072-00737 bad']
+    main_features = ['response', 'polarity', 'rub+buzz', 'thd']
+    timestamp = re.compile(r'(\d+\.){2}\d+')
     
-    tmp = [x.strip().lower() for x in from_file.split('\n') if x][1:] 
-    tmp = ['created_at {}'.format(x) if timestamp.match(x) else x for x in tmp] 
+    for fname in os.listdir('Data/'):
+        with open('Data/{}'.format(fname), 'r') as f:
+            from_file = f.read()
     
-    try: 
-        if len(tmp) < 6: 
-            missing_features = list(set([x.split(' ',1)[0] for x in min_pattern]) - set([x.split(' ',1)[0] for x in tmp])) 
-    
-            # if unit is missing and all other 4 features are present  
-            if (('unit' in missing_features) and (not[x for x in missing_features if x in ['response', 'polarity', 'rub+buzz', 'thd']])):
-    
-                if any('bad' in x for x in tmp): 
-                    overall = 'bad' 
-                else: 
-                    overall = 'good' 
-                tmp.append('unit n. {} {}'.format(fname.split('.',1)[0], overall)) 
-    
-    except Exception as e: 
-        print('ERROR:', e) 
-        print(tmp, len(tmp))
+        tmp = [x.strip().lower() for x in from_file.split('\n') if x][1:]
+        tmp = ['created_at {}'.format(x) if timestamp.match(x) else x for x in tmp]
+        
+        try:
+            if len(tmp) < 6:
+                missing_features = list(set([x.split(' ',1)[0] for x in min_pattern]) - set([x.split(' ',1)[0] for x in tmp]))
+                print(tmp)
+                
+                # if unit is missing and all other 4 features are present
+                if (('unit' in missing_features) and (not[x for x in missing_features if x in main_features])):
+                    if any('bad' in x for x in tmp):
+                        overall = 'bad'
+                    else:
+                        overall = 'good'
+                    tmp.append('unit n. {} {}'.format(fname.split('.',1)[0], overall))
+                
+                # else if any of the 4 features is missing and overall is 'good'
+                elif 'good' == ''.join([re.search('good|bad', x).group(0) for x in tmp if 'unit' in x]):
+                    tmp = ['{} good'.format(x.split(' ',1)[0]) if x.split(' ',1)[0] in main_features else x for x in main_features+tmp]
+                    tmp = list(OrderedDict.fromkeys(tmp))
+                
+                print('FIXED: ',tmp)
+        
+        except Exception as e:
+            print('ERROR:', e)
+            print(tmp, len(tmp))
 
     return tmp
 
