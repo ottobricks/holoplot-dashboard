@@ -57,19 +57,27 @@ def parse_timestamp_series(series):
     tmp = []
     for index, value in series.iteritems():
         try:
-            tmp.append(pd.to_datetime(value, format='%d.%m.%Y.%H.%M.%S'))
+            timestamp = pd.to_datetime(value, format='%d.%m.%Y.%H.%M.%S')
+            if not pd.isnull(timestamp):
+                tmp.append(timestamp)
+
+            else:
+                raise ValueError('Timestamp NaT does not match format.')
         
         except ValueError as e:
             logging.warning('TIMESTAMP_PARSE_WARNING:', e)
             if 'does not match format' in str(e):
+                NaT_FLAG = 'NaT' in str(e)
                 logging.info('... attempting to fix the format:')
-                date_pattern = re.compile(r'\d+.\d+.\d+.\d+.\d+.\d+')
-                date_to_fix = date_pattern.search(str(e)).group(0)
+        
+                if not NaT_FLAG:
+                    date_pattern = re.compile(r'\d+.\d+.\d+.\d+.\d+.\d+')
+                    date_to_fix = date_pattern.search(str(e)).group(0)
                 
-                # grabs the alleged day and month
-                first, second, tail = date_to_fix.split('.',2) 
+                    # grabs the alleged day and month
+                    first, second, tail = date_to_fix.split('.',2) 
                 
-                if (int(first) <= 12 and int(second) > 12):
+                if ((not NaT_FLAG) and (int(first) <= 12) and (int(second) > 12)):
                     try:
                         tmp.append(pd.to_datetime('{}.{}.{}'.format(second, first, tail), format='%d.%m.%Y.%H.%M.%S'))
                     
@@ -82,7 +90,13 @@ def parse_timestamp_series(series):
                 
                 else:
                     date_from_neighbor = series.iloc[index+1]
-                    new_date = '{}.{}'.format(date_from_neighbor.rsplit('.',3)[0], value.split('.',3)[-1])
+                    if NaT_FLAG:
+                        time = date_from_neighbor.split('.', 3)[-1]
+                    
+                    else:
+                        time = value.split('.', 3)[-1]
+
+                    new_date = '{}.{}'.format(date_from_neighbor.rsplit('.',3)[0], time)
                     
                     try: # to approxiamte the date from a neighbor, the original dataframe must be sorted by ['id'], though.
                         tmp.append(pd.to_datetime(new_date, format='%d.%m.%Y.%H.%M.%S'))
@@ -118,3 +132,18 @@ def load_testresults_todataframe(path):
     df.created_at = parse_timestamp_series(df.created_at)
 
     return df
+
+def parse_benchmark_state(df):
+    '''
+    Parses the number of failed tests for each Orion device in the dataframe
+    Returns a list of states that can be used to create a new column in the dataframe
+    '''
+    list_of_states = []
+    for index, value in df.iterrows():
+        if 'good' in str(value.overall):
+            list_of_states.append('passed')
+        
+        else:
+            list_of_states.append('failed_{}'.format(value.value_counts().bad - 1))
+    
+    return list_of_states
