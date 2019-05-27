@@ -1,5 +1,7 @@
-import os, re
+import os, re, logging
 import pandas as pd
+
+logging.basicConfig(filename='output.log', filemode='w',level=logging.WARNING)
 
 def load_test_results(file_name):
     '''
@@ -58,9 +60,9 @@ def parse_timestamp_series(series):
             tmp.append(pd.to_datetime(value, format='%d.%m.%Y.%H.%M.%S'))
         
         except ValueError as e:
-            print('TIMESTAMP_PARSE_ERROR:', e)
+            logging.warning('TIMESTAMP_PARSE_WARNING:', e)
             if 'does not match format' in str(e):
-                print('... attempting to fix the format:')
+                logging.info('... attempting to fix the format:')
                 date_pattern = re.compile(r'\d+.\d+.\d+.\d+.\d+.\d+')
                 date_to_fix = date_pattern.search(str(e)).group(0)
                 
@@ -72,10 +74,10 @@ def parse_timestamp_series(series):
                         tmp.append(pd.to_datetime('{}.{}.{}'.format(second, first, tail), format='%d.%m.%Y.%H.%M.%S'))
                     
                     except Exception as ex:
-                        print('\tFAILED to handle timestamp format exception: ', ex)
+                        logging.error('\tFAILED to handle timestamp format exception: ', ex)
                     
                     else:
-                        print('\tSUCCEEDED in handling exception for timestamp format.')
+                        logging.info('\tSUCCEEDED in handling exception for timestamp format.')
                         pass
                 
                 else:
@@ -86,10 +88,10 @@ def parse_timestamp_series(series):
                         tmp.append(pd.to_datetime(new_date, format='%d.%m.%Y.%H.%M.%S'))
                     
                     except Exception as ex:
-                        print('\tFAILED to handle timestamp format exception: ', ex)
+                        logging.error('\tFAILED to handle timestamp format exception: ', ex)
                     
                     else:
-                        print('\tSUCCEEDED in handling exception for timestamp format.')
+                        logging.info('\tSUCCEEDED in handling exception for timestamp format.')
                         pass
     return tmp
 
@@ -107,10 +109,12 @@ def load_testresults_todataframe(path):
     df = pd.DataFrame(list_of_dicts)
 
     # sort by ['id'] to enable extra error handling in parse_timestamp_series()
-    df.sort_values(by=['id'], inplace=True, ascending=False, kind='mergesort'))
+    df.sort_values(by=['id'], inplace=True, ascending=False, kind='mergesort')
     df.reset_index(inplace=True, drop=True)
 
     # standardizes the timestamp format in 'created_at' and transforms to datetime
     df.created_at = clean_timestamp_series(df.created_at)
     df.created_at = pad_timestamp_series(df.created_at)
     df.created_at = parse_timestamp_series(df.created_at)
+
+    return df
