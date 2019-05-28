@@ -1,9 +1,7 @@
-import os, re, sys
+import os, re
 import pandas as pd
 from collections import OrderedDict
 from numpy import NaN
-
-sys.stdout = open('logfile', 'w')
 
 def parse_test_results(fname):
     '''
@@ -85,8 +83,8 @@ def extend_test_results(list_of_strings):
 
             # parse the device id and overall result
             elif 'unit' in key: 
-                tmpd['overall'] = result.search(''.join(value.split())).group(0) if result.search(value)!=None else NaN
-                tmpd['id'] = model_no.search(''.join(value.split())).group(0) if model_no.search(value)!=None else NaN
+                tmpd['overall'] = result.search(''.join(value.split())).group(0) if result.search(value)!=None else 'nan'
+                tmpd['id'] = model_no.search(''.join(value.split())).group(0) if model_no.search(value)!=None else 'nan'
     
     return tmpd
 
@@ -114,7 +112,7 @@ def parse_timestamp_series(series):
         j = index - 1
 
         while(True):
-            if (i + (1 if pd.isnull(series[i]) else 0) == i):
+            if (i < len(series)-1) and (i + (1 if pd.isnull(series[i]) else 0) == i):
                 return i
             elif i < len(series)-1:
                 i += 1
@@ -195,9 +193,6 @@ def parse_timestamp_series(series):
                 print(e, series[index])
                 pass
             
-            except Exception as ex:
-                print('UNHANDLED_EXCEPTION:', ex, 'on index', index)
-            
             else:
                 new_date = str(series[neighbor_index])
         
@@ -224,8 +219,11 @@ def parse_benchmark_state(df):
             if 'good' in str(value.overall):
                 list_of_states.append('passed')
         
-            else:
+            elif 'bad' in str(value.overall):
                 list_of_states.append('failed_{}'.format(value.value_counts().bad - 1))
+
+            elif 'nan' in str(value.overall):
+                list_of_states.append('nan')
 
         except Exception as e:
             print('BENCHMARK_STATE_PARSER_ERROR:', value)
@@ -258,3 +256,7 @@ def load_testresults_todataframe(path):
     df['state'] = parse_benchmark_state(df)
 
     return df
+
+# debugging purposes
+if __name__ == '__main__':
+    df = load_testresults_todataframe('Data/')
