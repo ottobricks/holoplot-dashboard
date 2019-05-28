@@ -252,7 +252,12 @@ def load_testresults_todataframe(path):
     df.created_at = clean_timestamp_series(df.created_at)
     df.created_at = pad_timestamp_series(df.created_at)
     df.created_at = parse_timestamp_series(df.created_at)
+
+    # finds and drop rows that have no valid field
+    df.replace(to_replace='nan', value=NaN, inplace=True)
     df.dropna(how='all', inplace=True)
+    
+    # extends the dataframe to have columns states (the number of failed tests if any, or passed if none)
     df['state'] = parse_benchmark_state(df)
 
     return df
