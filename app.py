@@ -27,7 +27,8 @@ orion_df = aux.load_testresults_todataframe('Data/')
 
 # Picked with http://tristen.ca/hcl-picker/#/hlc/6/1.05/251C2A/E98F55
 COLORS = ['#608F40', '#727D29', '#7C691D', '#80561E', '#7D4525']
-STATES = ['passed', 'failed_1', 'failed_2', 'failed_3', 'failed_all']
+f_states = ['passed', 'failed_1', 'failed_2', 'failed_3', 'failed_all']
+t_states = ['response', 'polarity', 'rub+buzz', 'thd']
 
 app.layout = html.Div(children=[
     html.H2(children='Orion Dashboard', style={
@@ -47,10 +48,19 @@ app.layout = html.Div(children=[
 
     # html.Div(id='output-container-date-picker-range-paid-search')
     # ], className="row ", style={'marginTop': 30, 'marginBottom': 15}),
-
+    
+    dcc.RadioItems(
+        id='state_modes',
+        options=[
+            {'label': 'Failure Rate', 'value': 'f_states'},
+            {'label': 'Test Points', 'value': 't_states'}
+        ],
+        value='f_states'
+    ),
+    
     dcc.Dropdown(
-        id='categories',
-        options=[{'label': i, 'value': i} for i in STATES],
+        id='states',
+        #options=[{'label': i, 'value': i} for i in STATES],
         multi=True
     ),
     dcc.Graph(
@@ -64,48 +74,49 @@ app.layout = html.Div(children=[
 
 # ---------------- DASHBOARD INTERACTIONS ------------------------ #
 
-# @app.callback(
-#     dash.dependencies.Output('speakers-in-daterange', 'figure'),
-#     [
-#         dash.dependencies.Input('categories', 'value'),
-#         dash.dependencies.Input('date-range-picker', 'start_date'),
-#         dash.dependencies.Input('date-range-picker', 'end_date'),
-#     ])
+@app.callback(
+    dash.dependencies.Output('speakers-in-daterange', 'figure'),
+    [
+        dash.dependencies.Input('states', 'value'),
+        dash.dependencies.Input('date-range-picker', 'start_date'),
+        dash.dependencies.Input('date-range-picker', 'end_date'),
+    ])
 
-# def update_scatterplot(categories, start_date, end_date):
-#     if categories is None or categories == []:
-#         categories = CATEGORIES
+def update_scatterplot(states, start_date, end_date):
+    if states is None or states == []:
+        states = f_states
 
-#     start_date = dt.strptime(start_date, '%Y-%m-%d %H:%M:%S')
-#     end_date = dt.strptime(end_date, '%Y-%m-%d %H:%M:%S')
+    start_date = dt.strptime(start_date, '%Y-%m-%d')
+    end_date = dt.strptime(end_date, '%Y-%m-%d')
 
-#     sub_df = orion_df_sub[(orion_df_sub['broader_category'].isin(categories))]
-#     sub_df = sub_df.loc[[start_date <= x <= end_date for x in sub_df['created_at']]]
+    sub_df = orion_df[(orion_df.state.isin(states))]
+    sub_df = sub_df.loc[[start_date <= x <= end_date for x in sub_df.created_at.date()]]
 
-#     return {
-#         'data': [
-#             go.Scatter(
-#                 x=sub_df[(orion_df_sub.state == state)]['created_at'],
-#                 y=sub_df[(orion_df_sub.state == state)]['usd_pledged'],
-#                 text=sub_df[(orion_df_sub.state == state)]['name'],
-#                 mode='markers',
-#                 opacity=0.7,
-#                 marker={
-#                     'size': 15,
-#                     'color': color,
-#                     'line': {'width': 0.5, 'color': 'white'}
-#                 },
-#                 name=state,
-#             ) for (state, color) in zip(STATES, COLORS)
-#         ],
-#         'layout': go.Layout(
-#             xaxis={'title': 'Date'},
-#             yaxis={'title': 'USD pledged', 'type': 'log'},
-#             margin={'l': 40, 'b': 40, 't': 10, 'r': 10},
-#             legend={'x': 0, 'y': 1},
-#             hovermode='closest'
-#         )
-#     }
+    return {
+        'data': [
+            go.Scatter(
+                x = sub_df[(orion_df_sub.state == state)].created_at.date(),
+                y = sub_df[(orion_df_sub.state == state)].created_at.time(),
+                text = sub_df[(orion_df_sub.state == state)].id,
+                
+                mode='markers',
+                opacity=0.7,
+                marker={
+                    'size': 15,
+                    'color': color,
+                    'line': {'width': 0.5, 'color': 'white'}
+                },
+                name=state,
+            ) for (state, color) in zip(states, COLORS)
+        ],
+        'layout': go.Layout(
+            xaxis={'title': 'Date'},
+            yaxis={'title': 'Time'},
+            margin={'l': 40, 'b': 40, 't': 10, 'r': 10},
+            legend={'x': 0, 'y': 1},
+            hovermode='closest'
+        )
+    }
 
 
 # @app.callback(
