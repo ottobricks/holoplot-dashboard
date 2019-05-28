@@ -1,7 +1,9 @@
-import os, re
+import os, re, sys
 import pandas as pd
 from collections import OrderedDict
 from numpy import NaN
+
+sys.stdout = open('logfile', 'w')
 
 def parse_test_results(fname):
     '''
@@ -106,8 +108,11 @@ def parse_timestamp_series(series):
     tmp = []
 
     def find_nearest_neighbor(index, series):
-        # find the nearest neighbor with a valid date                    
-        neighbor_index = i = j = index
+        # finds the nearest neighbor with a valid date                    
+        neighbor_index = NaN
+        i = index + 1
+        j = index - 1
+
         while(True):
             if (i + (1 if pd.isnull(series[i]) else 0) == i):
                 return i
@@ -150,7 +155,7 @@ def parse_timestamp_series(series):
                         pass
         
                 elif ((int(first) > 12) and (int(second) > 12)):
-                    
+
                     try:
                         # find the nearest neighbor with a valid date            
                         neighbor_index = find_nearest_neighbor(index, series)
@@ -176,6 +181,9 @@ def parse_timestamp_series(series):
                         pass
         
         else:
+            print('TIMESTAMP_PARSE_WARNING: time data \'{}\' does not match format \'%d.%m.%Y.%H.%M.%S\' (index: {})'.format(value, index))
+            print('... attempting to fix the format:')
+
             # find the next neighbor with a valid timestamp to approximate
             try:
                 neighbor_index = find_nearest_neighbor(index, series)
@@ -188,7 +196,7 @@ def parse_timestamp_series(series):
                 pass
             
             except Exception as ex:
-                print('NaN_ERROR', ex, index)
+                print('UNHANDLED_EXCEPTION:', ex, 'on index', index)
             
             else:
                 new_date = str(series[neighbor_index])
@@ -250,4 +258,3 @@ def load_testresults_todataframe(path):
     df['state'] = parse_benchmark_state(df)
 
     return df
-
