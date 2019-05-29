@@ -1,20 +1,65 @@
 # -*- coding: utf-8 -*-
-
+import base64
+from urllib.parse import quote as urlquote
 import os, re, json
+
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
-import dateutil
+from dash.dependencies import Input, Output
+from flask import Flask, send_from_directory
+
 import plotly.graph_objs as go
 import pandas as pd
 from datetime import datetime as dt
 from datetime import date, timedelta
 import aux_methods as aux
 
-app = dash.Dash()
-app.css.append_css({
-    "external_url": "https://codepen.io/chriddyp/pen/bWLwgP.css"
-})
+external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
+
+# ------------------ AUX METHODS FOR FILE HANDLING --------------------- #
+'''
+Move this to aux_method.py whenever possible
+'''
+def save_file(name, content):
+    """Decode and store a file uploaded with Plotly Dash."""
+    data = content.encode("utf8").split(b";base64,")[1]
+    with open(os.path.join(UPLOAD_DIRECTORY, name), "wb") as fp:
+        fp.write(base64.decodebytes(data))
+
+
+def uploaded_files():
+    """List the files in the upload directory."""
+    files = []
+    for filename in os.listdir(UPLOAD_DIRECTORY):
+        path = os.path.join(UPLOAD_DIRECTORY, filename)
+        if os.path.isfile(path):
+            files.append(filename)
+    return files
+
+
+def file_download_link(filename):
+    """Create a Plotly Dash 'A' element that downloads a file from the app."""
+    location = "/download/{}".format(urlquote(filename))
+    return html.A(filename, href=location)
+# --------------------------------------------------------------------- #
+
+UPLOAD_DIRECTORY = "./tmp/"
+
+if not os.path.exists(UPLOAD_DIRECTORY):
+    os.makedirs(UPLOAD_DIRECTORY)
+
+
+# Normally, Dash creates its own Flask server internally. By creating our own,
+# we can create a route for downloading files directly:
+server = Flask(__name__)
+app = dash.Dash(server=server,external_stylesheets=external_stylesheets)
+
+
+@server.route("/download/<path:path>")
+def download(path):
+    """Serve a file from the upload directory."""
+    return send_from_directory(UPLOAD_DIRECTORY, path, as_attachment=True)
 
 
 # ---------------- LOAD THE DATAFRAME ------------------------ #
@@ -29,19 +74,43 @@ app.layout = html.Div(children=[
     html.H2(children='Orion Dashboard', style={
         'textAlign': 'center',
     }),
-    # Date Picker
-    html.Div([
-        dcc.DatePickerRange(
-            id='date-range-picker',
-            min_date_allowed = orion_df.index.min().date(),
-            max_date_allowed = orion_df.index.max().date() + timedelta(days=1),
-            initial_visible_month = dt(orion_df.index.max().year,
-                                       orion_df.index.max().month, 1),
-            start_date = orion_df.index.max().date() - timedelta(days=6),
-            end_date = orion_df.index.max().date() + timedelta(days=1),
-            display_format='D MMM, YYYY',
-        )
-        ], className="row", style={'marginTop': 30, 'marginBottom': 15}),
+    html.Div(className='row', children=[
+        
+        # Date Picker
+        html.Div([
+            dcc.DatePickerRange(
+                id='date-range-picker',
+                min_date_allowed = orion_df.index.min().date(),
+                max_date_allowed = orion_df.index.max().date() + timedelta(days=1),
+                initial_visible_month = dt(orion_df.index.max().year,
+                                           orion_df.index.max().month, 1),
+                start_date = orion_df.index.max().date() - timedelta(days=6),
+                end_date = orion_df.index.max().date() + timedelta(days=1),
+                display_format='D MMM, YYYY',
+                )], className='six columns', style=dict(marginTop='10px')),
+
+        html.Div([
+            dcc.Upload(
+                id="upload-data",
+                children=html.Div(
+                    ["Drop file or click to select"]
+                ),
+                style={
+                    "width": "60%",
+                    "height": "40px",
+                    "lineHeight": "40px",
+                    "borderWidth": "1px",
+                    "borderStyle": "dashed",
+                    "display": "inline-block",
+                    #"borderRadius": "2px",
+                    "textAlign": "center",
+                    "marginTop": "10px",
+                    "float": "right",
+                },
+                multiple=True,
+            )], className='six columns',)
+
+    ]),
     
     html.Div([
         dcc.RadioItems(
@@ -65,12 +134,17 @@ app.layout = html.Div(children=[
         dcc.Graph(
             id='graph1',
         ),
-
+        
+        # data display of clicked items 
         html.Pre(id='click-data'),
 
-    ], className="row", style={'marginTop': 15, 'marginBottom': 15, 'marginLeft': 20, 'marginRight': 20})
+    ], className="row", style={'marginTop': 15, 'marginBottom': 15, 'marginLeft': 20, 'marginRight': 20}),
+   
+    html.Div([
+        html.H3("File List"),
+        html.Ul(id="file-list"),    
+    ], className='column', style=dict(float='left')),
 ])
-
 
 # ---------------- DASHBOARD INTERACTIONS ------------------------ #
 
@@ -116,10 +190,10 @@ def update_graph1(start_date: str, end_date: str, in_focus: list, mode: str) -> 
     end = dt.strptime(end_date, '%Y-%m-%d')
 
     if mode == 'f_rate':
-        return aux.update_windroseplot(orion_df, start, end, in_focus)
+        return aux.update_barplot(orion_df, start, end, in_focus)
 
     elif mode == 'd_specs':
-        return aux.update_scatterplot(orion_df, start, end, in_focus)
+        return aux.update_windroseplot(orion_df, start, end, in_focus)
 
 
 @app.callback(
@@ -130,6 +204,23 @@ def update_graph1(start_date: str, end_date: str, in_focus: list, mode: str) -> 
 )
 def display_click_data(clickData):
     return json.dumps(clickData, indent=2)
+
+@app.callback(
+    Output("file-list", "children"),
+    [Input("upload-data", "filename"), Input("upload-data", "contents")],
+)
+def update_output(uploaded_filenames, uploaded_file_contents):
+    """Save uploaded files and regenerate the file list."""
+
+    if uploaded_filenames is not None and uploaded_file_contents is not None:
+        for name, data in zip(uploaded_filenames, uploaded_file_contents):
+            save_file(name, data)
+
+    files = uploaded_files()
+    if len(files) == 0:
+        return [html.Li("No files yet!")]
+    else:
+        return [html.Li(file_download_link(filename)) for filename in files]
 
 # @app.callback(
 #     dash.dependencies.Output('stats-in-daterange', 'figure'),

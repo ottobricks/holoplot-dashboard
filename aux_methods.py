@@ -6,6 +6,7 @@ from typing import Any
 from datetime import datetime as dt
 from datetime import timedelta
 import plotly.graph_objs as go
+from math import pow
 
 # ---------------------- AUX METHODS FOR PARSER -------------------------- #
 def parse_test_results(fname):
@@ -291,38 +292,32 @@ def update_windroseplot(in_df: pd.DataFrame, start: dt.date, end: dt.date, in_fo
         df = df.loc[start : end]
 
     # we evaluate the number of days in the date_range that are in df
-    td = unique(df[start : end].index.date)
+    td = unique(df[start : end].index)
 
-    # for each feature in 'in_focus', we plot 'td' days around the pole
-    features = df.state.unique()
-    feature_series = {}
-    
-    for feat in features:
-        feature_series[feat] = df[(df.state==feat)].state.resample('D').count().replace(0, NaN).dropna()
         
 
     return {
         'data': [
             go.Scatterpolargl(
-                r = feature_series[feature].values,
-                theta = [float('0.'+''.join(df.iloc[x].id.split('-'))[1:]) for x in range(0, len(df))] ,
-                text= [x.strftime('%d %b') for x in feature_series[feature].index],
-                name=feature,
+                r = df[start : end].apply(lambda x: float(x.index.strftime('%h')+x.id.split('-',1,)[1]) if 'nan' not in x else 0),
+                theta = df[start : end].index.hour,
+                text='TEST_TEXT',
+                name='TEST_NAME',
                 mode = 'markers',
                 marker = dict(
-                    color = color,
-                    size = 15,
+                    color = 'rgb(26, 118, 255)',
+                    size = 30,
+                    opacity=0.7,
                     line = dict(
                         color = "white"
                     ),
-                    opacity=0.7,
                 ),
-            ) for (feature, color) in zip(features, colors)
+            ) 
         ],
         'layout': go.Layout(
-            title='Test Summary from {} {} to {} {} of {}'.format(start.day, start.month, end.day-1, end.month, end.year),
+            title='Test Summary from {} to {} {}'.format(start.strftime('%d %b'), end.day-1, end.strftime('%b, %Y')),
             font=dict(
-                size=12
+                size=18,
             ),
             showlegend=True,
             legend=dict(
@@ -339,17 +334,23 @@ def update_windroseplot(in_df: pd.DataFrame, start: dt.date, end: dt.date, in_fo
                 angularaxis = dict(
                     tickwidth = 2,
                     linewidth = 3,
-                    layer = "below traces"
+                    layer = "below traces",
+                    showgrid =True,
+                    categoryarray = [x for x in range(1,25)],
+                    #nticks= len(unique(df[start : end].index.date)),
+                    direction = 'clockwise',
+                    rotation=180,
+
                 ),
                 radialaxis = dict(
-                    side = "clockwise",
+                    range = [0, 10],
                     showline = True,
                     linewidth = 2,
                     tickwidth = 2,
                     gridcolor = "white",
                     gridwidth = 2,
-                    range = [0, 400]
-                )
+                ),
+                    sector = [0, 180],
             ),
             #paper_bgcolor = "rgb(223, 223, 223)"
         )
@@ -358,8 +359,7 @@ def update_windroseplot(in_df: pd.DataFrame, start: dt.date, end: dt.date, in_fo
 def update_barplot(in_df: pd.DataFrame, start: dt.date, end: dt.date, in_focus: Any) -> dict:
     '''
     '''
-    # Picked with http://tristen.ca/hcl-picker/#/hlc/6/1.05/251C2A/E98F55
-    COLORS = ['#727D29', 'rgb(26, 118, 255)', '#80561E', '#7D4525']
+    colors = ['green', 'orangered', 'deepskyblue', 'darkviolet', 'peru']
 
     end = end + timedelta(days=1)
     
@@ -371,20 +371,27 @@ def update_barplot(in_df: pd.DataFrame, start: dt.date, end: dt.date, in_focus: 
         df = in_df[(in_df.state.isin(in_focus))].copy()
         df = df.loc[start : end]
 
+    # for each feature in 'in_focus', we plot 'td' days around the pole
+    features = df.state.unique()
+    feature_series = {}
+    
+    for feat in features:
+        feature_series[feat] = df[(df.state==feat)].state.resample('D').count().replace(0, NaN).dropna()
+
+
     return {
         'data': [
             go.Bar(
-                x = unique(df.index.date),
-                y = [(df[str(x.date())].state.str.contains(state)).sum() for x in pd.date_range(start=start, end=end) if (x.date() in df.index.date)],
-                text = state,
-
+                x = feature_series[feature].index,
+                y = feature_series[feature].values,
+                text = feature,
                 opacity=1,
                 marker=dict(
                     color=color
                 ),
-                name=state,
+                name=feature,
                 
-            ) for (state, color) in zip(list(df.state.unique()), COLORS[:(len(list(df.state.unique())))])
+            ) for (feature, color) in zip(feature_series.keys(), colors)
 
         ],
         
@@ -410,7 +417,7 @@ def update_barplot(in_df: pd.DataFrame, start: dt.date, end: dt.date, in_focus: 
             ),
             margin={'l': 40, 'b': 40, 't': 10, 'r': 10},
             hovermode='closest',
-            bargap=0.15,
+            bargap=0.07,
             bargroupgap=0.1,
             legend=dict(
                 x=0,
@@ -424,11 +431,40 @@ def update_barplot(in_df: pd.DataFrame, start: dt.date, end: dt.date, in_focus: 
     }
 
 
-# debugging purposes
+# -------------------------- AUX METHODS FOR FILE HANDLING ----------------------------- #
+'''
+Reference:
+    https://docs.faculty.ai/user-guide/apps/examples/dash_file_upload_download.html
+'''
+
+def save_file(name, content):
+    """Decode and store a file uploaded with Plotly Dash."""
+    data = content.encode("utf8").split(b";base64,")[1]
+    with open(os.path.join(UPLOAD_DIRECTORY, name), "wb") as fp:
+        fp.write(base64.decodebytes(data))
+
+
+def uploaded_files():
+    """List the files in the upload directory."""
+    files = []
+    for filename in os.listdir(UPLOAD_DIRECTORY):
+        path = os.path.join(UPLOAD_DIRECTORY, filename)
+        if os.path.isfile(path):
+            files.append(filename)
+    return files
+
+
+def file_download_link(filename):
+    """Create a Plotly Dash 'A' element that downloads a file from the app."""
+    location = "/download/{}".format(urlquote(filename))
+    return html.A(filename, href=location)
+
+
+
+# debugging purposes -------------------------------------------------------------------
 if __name__ == '__main__':
     df = load_testresults_todataframe('Data/')
     update_windroseplot(df, dt(2018,9,4), dt(2018,10,17), ['passed', 'failed_1'])
-
 
 '''
 SAVING INTERESTING PATTERNS
