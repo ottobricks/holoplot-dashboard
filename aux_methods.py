@@ -382,7 +382,8 @@ def update_barplot(in_df: pd.DataFrame, start: dt.date, end: dt.date, in_focus: 
     return {
         'data': [
             go.Bar(
-                x = feature_series[feature].index,
+                #x = feature_series[feature].index,
+                x = [x.strftime('%b %d') for x in unique(feature_series[feature].index.date)],
                 y = feature_series[feature].values,
                 text = feature,
                 opacity=1,
@@ -401,7 +402,9 @@ def update_barplot(in_df: pd.DataFrame, start: dt.date, end: dt.date, in_focus: 
                 tickfont=dict(
                     size=14,
                     color='rgb(107, 107, 107)'
-                )
+                ),
+                #tickvals=unique(df.index.date),
+                #ticktext=[x.strftime('%b %d') for x in unique(df.index.date)]
             ),
             yaxis=dict(
                 title='Number of Devices',
@@ -413,12 +416,17 @@ def update_barplot(in_df: pd.DataFrame, start: dt.date, end: dt.date, in_focus: 
                 tickfont=dict(
                     size=14,
                     color='rgb(107, 107, 107)'
-                )
+                ),
+                autorange=True,
+                showgrid=False,
+                showline=False,
+                showticklabels=False,
+                type='log',
             ),
             margin={'l': 40, 'b': 40, 't': 10, 'r': 10},
             hovermode='closest',
-            bargap=0.07,
-            bargroupgap=0.1,
+            bargap=0.1,
+            bargroupgap=0.05,
             legend=dict(
                 x=0,
                 y=1.0,
@@ -429,36 +437,6 @@ def update_barplot(in_df: pd.DataFrame, start: dt.date, end: dt.date, in_focus: 
             #plot_bgcolor='#222',
         )
     }
-
-
-# -------------------------- AUX METHODS FOR FILE HANDLING ----------------------------- #
-'''
-Reference:
-    https://docs.faculty.ai/user-guide/apps/examples/dash_file_upload_download.html
-'''
-
-def save_file(name, content):
-    """Decode and store a file uploaded with Plotly Dash."""
-    data = content.encode("utf8").split(b";base64,")[1]
-    with open(os.path.join(UPLOAD_DIRECTORY, name), "wb") as fp:
-        fp.write(base64.decodebytes(data))
-
-
-def uploaded_files():
-    """List the files in the upload directory."""
-    files = []
-    for filename in os.listdir(UPLOAD_DIRECTORY):
-        path = os.path.join(UPLOAD_DIRECTORY, filename)
-        if os.path.isfile(path):
-            files.append(filename)
-    return files
-
-
-def file_download_link(filename):
-    """Create a Plotly Dash 'A' element that downloads a file from the app."""
-    location = "/download/{}".format(urlquote(filename))
-    return html.A(filename, href=location)
-
 
 
 # debugging purposes -------------------------------------------------------------------

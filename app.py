@@ -80,12 +80,12 @@ app.layout = html.Div(children=[
         html.Div([
             dcc.DatePickerRange(
                 id='date-range-picker',
-                min_date_allowed = orion_df.index.min().date(),
-                max_date_allowed = orion_df.index.max().date() + timedelta(days=1),
                 initial_visible_month = dt(orion_df.index.max().year,
                                            orion_df.index.max().month, 1),
                 start_date = orion_df.index.max().date() - timedelta(days=6),
                 end_date = orion_df.index.max().date() + timedelta(days=1),
+                min_date_allowed = orion_df.index.min().date(),
+                max_date_allowed = orion_df.index.max().date() + timedelta(days=1),
                 display_format='D MMM, YYYY',
                 )], className='six columns', style=dict(marginTop='10px')),
 
