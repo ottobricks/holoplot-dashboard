@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import os, re
+import os, re, json
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
@@ -25,10 +25,6 @@ orion_df = aux.load_testresults_todataframe('Data/')
 
 # ---------------- DASHBOARD LAYOUT ------------------------ #
 
-# Picked with http://tristen.ca/hcl-picker/#/hlc/6/1.05/251C2A/E98F55
-COLORS = ['#608F40', '#727D29', '#7C691D', '#80561E', '#7D4525']
-
-
 app.layout = html.Div(children=[
     html.H2(children='Orion Dashboard', style={
         'textAlign': 'center',
@@ -37,37 +33,42 @@ app.layout = html.Div(children=[
     html.Div([
         dcc.DatePickerRange(
             id='date-range-picker',
-            min_date_allowed = orion_df['created_at'].min().to_pydatetime().date(),
-            max_date_allowed = orion_df['created_at'].max().to_pydatetime().date(),
-            initial_visible_month = dt(orion_df['created_at'].max().to_pydatetime().date().year,
-                                       orion_df['created_at'].max().to_pydatetime().date().month, 1),
-            start_date = orion_df['created_at'].max().to_pydatetime().date() - timedelta(days=5),
-            end_date = orion_df['created_at'].max().to_pydatetime().date(),
+            min_date_allowed = orion_df.index.min().date(),
+            max_date_allowed = orion_df.index.max().date() + timedelta(days=1),
+            initial_visible_month = dt(orion_df.index.max().year,
+                                       orion_df.index.max().month, 1),
+            start_date = orion_df.index.max().date() - timedelta(days=6),
+            end_date = orion_df.index.max().date() + timedelta(days=1),
             display_format='D MMM, YYYY',
-    )], className="row", style={'marginTop': 30, 'marginBottom': 15}),
+        )
+        ], className="row", style={'marginTop': 30, 'marginBottom': 15}),
     
-    dcc.RadioItems(
-        id='radio_states',
-        options=[
-            {'label': 'Failure Rate', 'value': 'f_rate'},
-            {'label': 'Test Points', 'value': 't_points'},
-            {'label': 'Devices', 'value': 'd_specs'}
-        ],
-        value='f_rate',
-        labelStyle={'display': 'inline-block'}
-    ),
-    
-    dcc.Dropdown(
-        id='dropdown_states',
-        #options=[{'label': i, 'value': i} for i in STATES],
-        multi=True
-    ),
-    dcc.Graph(
-        id='speakers-in-daterange',
-    ),
-    dcc.Graph(
-        id='stats-in-daterange',
-    )
+    html.Div([
+        dcc.RadioItems(
+            id='radio_states',
+            options=[
+                {'label': 'Failure Rate', 'value': 'f_rate'},
+                {'label': 'Test Points', 'value': 't_points'},
+                {'label': 'Devices', 'value': 'd_specs'}
+            ],
+            value='f_rate',
+            labelStyle={'display': 'inline-block'}
+        ),
+        
+        dcc.Dropdown(
+            id='dropdown_states',
+            multi=True
+        )
+    ], className="row", style={'marginTop': 15, 'marginBottom': 15}),
+
+    html.Div([
+        dcc.Graph(
+            id='graph1',
+        ),
+
+        html.Pre(id='click-data'),
+
+    ], className="row", style={'marginTop': 15, 'marginBottom': 15, 'marginLeft': 20, 'marginRight': 20})
 ])
 
 
@@ -81,9 +82,12 @@ app.layout = html.Div(children=[
         dash.dependencies.Input('date-range-picker', 'end_date')
     ]
 )
-def update_dropdown_states(mode, start, end):
+def update_dropdown_states(mode: str, start_date: str, end_date: str) -> list:
     '''
     '''
+    start = dt.strptime(start_date, '%Y-%m-%d')
+    end = dt.strptime(end_date, '%Y-%m-%d')
+
     if mode == 'f_rate':
         return [{'label': ' '.join(i.split('_')).title(), 'value': i} for i in ['passed', 'failed_1', 'failed_2', 'failed_3', 'failed_all']]
     
@@ -92,49 +96,40 @@ def update_dropdown_states(mode, start, end):
 
     elif mode == 'd_specs':
         if start is not None and end is not None:
-            return [{'label': i.title(), 'value': i} for i in orion_df.id.loc[orion_df.created_at.between(dt.strptime(start, '%Y-%m-%d'), dt.strptime(end, '%Y-%m-%d'))]]
+            return [{'label': i.title(), 'value': i} for i in orion_df.loc[start : end].id.values]
 
-# @app.callback(
-#     dash.dependencies.Output('speakers-in-daterange', 'figure'),
-#     [
-#         dash.dependencies.Input('date-range-picker', 'start_date'),
-#         dash.dependencies.Input('date-range-picker', 'end_date'),
-#         dash.dependencies.Input('dropdown_states', 'value')
-#     ]
-# )
-# def update_scatterplot(start_date, end_date, states):
-#     start_date = dt.strptime(start_date, '%Y-%m-%d')
-#     end_date = dt.strptime(end_date, '%Y-%m-%d')
 
-#     sub_df = orion_df[(orion_df.state.isin(states))]
-#     sub_df = sub_df.loc[[start_date <= x <= end_date for x in sub_df.created_at.date()]]
+@app.callback(
+    dash.dependencies.Output('graph1', 'figure'),
+    [
+        dash.dependencies.Input('date-range-picker', 'start_date'),
+        dash.dependencies.Input('date-range-picker', 'end_date'),
+        dash.dependencies.Input('dropdown_states', 'value'),
+        dash.dependencies.Input('radio_states', 'value')
+    ]
+)
+def update_graph1(start_date: str, end_date: str, in_focus: list, mode: str) -> dict:
+    '''
+    '''
+    # transform into datetime.date object
+    start = dt.strptime(start_date, '%Y-%m-%d')
+    end = dt.strptime(end_date, '%Y-%m-%d')
 
-#     return {
-#         'data': [
-#             go.Scatter(
-#                 x = sub_df[(orion_df_sub.state == state)].created_at.date(),
-#                 y = sub_df[(orion_df_sub.state == state)].created_at.time(),
-#                 text = sub_df[(orion_df_sub.state == state)].id,
-                
-#                 mode='markers',
-#                 opacity=0.7,
-#                 marker={
-#                     'size': 15,
-#                     'color': color,
-#                     'line': {'width': 0.5, 'color': 'white'}
-#                 },
-#                 name=state,
-#             ) for (state, color) in zip(states, COLORS)
-#         ],
-#         'layout': go.Layout(
-#             xaxis={'title': 'Date'},
-#             yaxis={'title': 'Time'},
-#             margin={'l': 40, 'b': 40, 't': 10, 'r': 10},
-#             legend={'x': 0, 'y': 1},
-#             hovermode='closest'
-#         )
-#     }
+    if mode == 'f_rate':
+        return aux.update_windroseplot(orion_df, start, end, in_focus)
 
+    elif mode == 'd_specs':
+        return aux.update_scatterplot(orion_df, start, end, in_focus)
+
+
+@app.callback(
+    dash.dependencies.Output('click-data', 'children'),
+    [
+        dash.dependencies.Input('graph1', 'clickData')
+    ]
+)
+def display_click_data(clickData):
+    return json.dumps(clickData, indent=2)
 
 # @app.callback(
 #     dash.dependencies.Output('stats-in-daterange', 'figure'),
