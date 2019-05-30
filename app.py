@@ -82,7 +82,7 @@ app.layout = html.Div(children=[
                 id='date-range-picker',
                 initial_visible_month = dt(orion_df.index.max().year,
                                            orion_df.index.max().month, 1),
-                start_date = orion_df.index.max().date() - timedelta(days=6),
+                start_date = orion_df.index.max().date() - timedelta(days=15),
                 end_date = orion_df.index.max().date() + timedelta(days=1),
                 min_date_allowed = orion_df.index.min().date(),
                 max_date_allowed = orion_df.index.max().date() + timedelta(days=1),
