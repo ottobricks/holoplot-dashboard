@@ -68,16 +68,20 @@ orion_df = aux.load_testresults_todataframe('Data/')
 
 
 
-# ---------------- DASHBOARD LAYOUT ------------------------ #
+# ---------------- DASHBOARD LAYOUT -------------------------- #
 
-app.layout = html.Div(children=[
+# colorscheme ------------------------------------------------ #
+colors = dict(darkest='#344b52', darker='#597f8a', lightest='#f5f5f5', pastel='#cfd3ca', lighter='#a1bdc2')
+
+# HTMLish ---------------------------------------------------- #
+app.layout = html.Div(style=dict(backgroundColor=colors['lightest']), children=[
     html.H2(children='Orion Dashboard', style={
         'textAlign': 'center',
     }),
     html.Div(className='row', children=[
         
         # Date Picker
-        html.Div([
+        html.Div(children=[
             dcc.DatePickerRange(
                 id='date-range-picker',
                 initial_visible_month = dt(orion_df.index.max().year,
@@ -87,7 +91,9 @@ app.layout = html.Div(children=[
                 min_date_allowed = orion_df.index.min().date(),
                 max_date_allowed = orion_df.index.max().date() + timedelta(days=1),
                 display_format='D MMM, YYYY',
-                )], className='six columns', style=dict(marginTop='10px')),
+                with_portal=True,
+                with_full_screen_portal=False,
+                )], className='six columns', style=dict(marginTop='10px', backgroundColor=colors['lightest'], fontSize='small')),
 
         html.Div([
             dcc.Upload(
