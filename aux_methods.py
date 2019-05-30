@@ -6,7 +6,6 @@ from typing import Any
 from datetime import datetime as dt
 from datetime import timedelta
 import plotly.graph_objs as go
-from math import pow
 
 # ---------------------- AUX METHODS FOR PARSER -------------------------- #
 def parse_test_results(fname):
@@ -377,11 +376,20 @@ def update_barplot(in_df: pd.DataFrame, start: dt.date, end: dt.date, in_focus: 
     
     for feat in features:
         feature_series[feat] = df[(df.state==feat)].state.resample('D').count().replace(0, NaN).dropna()
+    
+    # for each day, calculate the failure rate
+    fail_rate = {}
+    for date in unique(df.index.date):
+        date = date.strftime('%Y-%m-%d')
+        if df[date].overall.value_counts()['good'] > 0:
+            fail_rate[date] = df[date].overall.value_counts()['bad']  / df[date].overall.value_counts()['good']
+        
+        else:
+            fail_rate[date] = 1
 
-
-    return {
-        'data': [
-            go.Bar(
+    # define data properties for our chart
+    my_data = [
+        go.Bar(
                 #x = feature_series[feature].index,
                 x = [x.strftime('%b %d') for x in unique(feature_series[feature].index.date)],
                 y = feature_series[feature].values,
@@ -393,20 +401,31 @@ def update_barplot(in_df: pd.DataFrame, start: dt.date, end: dt.date, in_focus: 
                 name=feature,
                 
             ) for (feature, color) in zip(feature_series.keys(), colors)
+    ]
+    my_data.append(
+        go.Scatter(
+                mode='lines',
+                x = [x for x in fail_rate.keys()],
+                y = list(fail_rate.values()),
+                name='Fail Rate',
+                yaxis='y2',
+                xaxis='x2',
+                
+            ),
+    )
 
-        ],
-        
-        'layout': go.Layout(
-            barmode='group',
-            xaxis=dict(
+    # define layout properties for our chart
+    my_layout = go.Layout(
+        xaxis=dict(
                 tickfont=dict(
                     size=14,
                     color='rgb(107, 107, 107)'
                 ),
+                domain=[0,1]
                 #tickvals=unique(df.index.date),
                 #ticktext=[x.strftime('%b %d') for x in unique(df.index.date)]
             ),
-            yaxis=dict(
+        yaxis=dict(
                 title='Number of Devices',
                 titlefont=dict(
                     size=16,
@@ -422,21 +441,41 @@ def update_barplot(in_df: pd.DataFrame, start: dt.date, end: dt.date, in_focus: 
                 showline=False,
                 showticklabels=False,
                 type='log',
+                domain=[0.2,1]
             ),
-            margin={'l': 40, 'b': 40, 't': 10, 'r': 10},
-            hovermode='closest',
-            bargap=0.1,
-            bargroupgap=0.05,
-            legend=dict(
-                x=0,
-                y=1.0,
-                bgcolor='rgba(255, 255, 255, 0)',
-                bordercolor='rgba(255, 255, 255, 0)'
-            ),
-            #paper_bgcolor='#222',
-            #plot_bgcolor='#222',
-        )
-    }
+        xaxis2=dict(
+            autorange=True,
+            showgrid=False,
+            showline=False,
+            showticklabels=False,
+        ),
+        yaxis2=dict(
+            side='right',
+            domain=[0,0.15],
+            autorange=True,
+            showgrid=False,
+            showline=False,
+            showticklabels=False,
+        ),
+        
+        barmode='group',
+        margin={'l': 40, 'b': 40, 't': 10, 'r': 10},
+        hovermode='closest',
+        bargap=0.1,
+        bargroupgap=0.05,
+        legend=dict(
+            x=0,
+            y=1.0,
+            bgcolor='rgba(255, 255, 255, 0)',
+            bordercolor='rgba(255, 255, 255, 0)'
+        ),
+        #paper_bgcolor='#222',
+        #plot_bgcolor='#222',
+        
+    )
+
+    return dict(data=my_data, layout=my_layout)
+
 
 
 # debugging purposes -------------------------------------------------------------------
