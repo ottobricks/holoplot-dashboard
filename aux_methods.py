@@ -370,118 +370,107 @@ def update_barplot(in_df: pd.DataFrame, start: dt.date, end: dt.date, in_focus: 
         df = in_df[(in_df.state.isin(in_focus))].copy()
         df = df.loc[start : end]
 
-    # for each feature in 'in_focus', we plot 'td' days around the pole
-    features = df.state.unique()
-    feature_series = {}
+    # for each state in 'in_focus', we plot 'td' days around the pole
+    overall_s = df.state.unique()
+    overall_series = {}
     
-    for feat in features:
-        feature_series[feat] = df[(df.state==feat)].state.resample('D').count().replace(0, NaN).dropna()
+    for feat in overall_s:
+        overall_series[feat] = df[(df.state==feat)].state.resample('D').count().replace(0, NaN).dropna()
     
     # for each day, calculate the failure rate
-    fail_rate = {}
-    for date in unique(df.index.date):
-        date = date.strftime('%Y-%m-%d')
-        if df[date].overall.value_counts()['good'] > 0:
-            fail_rate[date] = df[date].overall.value_counts()['bad']  / df[date].overall.value_counts()['good']
-        
-        else:
-            fail_rate[date] = 1
+    if not in_focus or (any(['failed' in x for x in in_focus]) and any(['passed' in x for x in in_focus])):
+        fail_rate = {}
+        for date in unique(df.index.date):
+            d = date.strftime('%Y-%m-%d')
+            fail_n = sum([y for (x,y) in zip(df[d].state.value_counts().index, df[d].state.value_counts().values) if 'fail' in x])
+
+            if df[d].state.value_counts()['passed'] > 0:
+                fail_rate[date.strftime('%b %d')] = fail_n  / (df[d].state.value_counts()['passed'] + fail_n)
+            
+            else:
+                fail_rate[date] = 1
 
     # define data properties for our chart
     my_data = [
         go.Bar(
-                #x = feature_series[feature].index,
-                x = [x.strftime('%b %d') for x in unique(feature_series[feature].index.date)],
-                y = feature_series[feature].values,
-                text = feature,
+                #x = overall_series[state].index,
+                x = [x.strftime('%b %d') for x in unique(overall_series[state].index.date)],
+                y = overall_series[state].values,
+                text = overall_series[state].values,
+                textposition = 'auto',
                 opacity=1,
                 marker=dict(
                     color=color
                 ),
-                name=feature,
+                name=state,
                 
-            ) for (feature, color) in zip(feature_series.keys(), colors)
+            ) for (state, color) in zip(overall_series.keys(), colors)
     ]
-    my_data.append(
-        go.Scatter(
-                mode='lines',
-                x = [x for x in fail_rate.keys()],
-                y = list(fail_rate.values()),
-                name='Fail Rate',
-                yaxis='y2',
-                xaxis='x2',
-                
-            ),
-    )
+    if not in_focus or (any(['failed' in x for x in in_focus]) and any(['passed' in x for x in in_focus])):
+        my_data.append(
+            go.Scatter(
+                    mode='lines',
+                    x = [x for x in fail_rate.keys()],
+                    y = list(fail_rate.values()),
+                    name='Fail Rate',
+                    yaxis='y2',
+                    
+                ),
+        )
 
     # define layout properties for our chart
-    my_layout = go.Layout(
-        xaxis=dict(
-                tickfont=dict(
-                    size=14,
-                    color='rgb(107, 107, 107)'
-                ),
-                domain=[0,1]
-                #tickvals=unique(df.index.date),
-                #ticktext=[x.strftime('%b %d') for x in unique(df.index.date)]
-            ),
-        yaxis=dict(
-                title='Number of Devices',
-                titlefont=dict(
-                    size=16,
-                    color='rgb(107, 107, 107)'
-                ),
-                tickangle=-45,
-                tickfont=dict(
-                    size=14,
-                    color='rgb(107, 107, 107)'
-                ),
-                autorange=True,
-                showgrid=False,
-                showline=False,
-                showticklabels=False,
-                type='log',
-                domain=[0.2,1]
-            ),
-        xaxis2=dict(
-            autorange=True,
-            showgrid=False,
-            showline=False,
-            showticklabels=False,
+    layout = go.Layout(
+        title= ('Overview'),
+        titlefont=dict(
+            family='Courier New, monospace',
+            size=15,
+            color='#7f7f7f'
         ),
-        yaxis2=dict(
-            side='right',
-            domain=[0,0.15],
-            autorange=True,
-            showgrid=False,
-            showline=False,
-            showticklabels=False,
-        ),
-        
-        barmode='group',
-        margin={'l': 40, 'b': 40, 't': 10, 'r': 10},
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        #barmode='group',
+        margin={'l': 30, 'r': 30},
         hovermode='closest',
-        bargap=0.1,
-        bargroupgap=0.05,
+        bargap=0.5,
+        bargroupgap=0.025,
         legend=dict(
             x=0,
             y=1.0,
             bgcolor='rgba(255, 255, 255, 0)',
             bordercolor='rgba(255, 255, 255, 0)'
         ),
-        #paper_bgcolor='#222',
-        #plot_bgcolor='#222',
-        
+
+
+        yaxis=dict(
+            tickfont=dict(
+                color='#7f7f7f'
+            ),
+            type='log',
+            autorange=True,
+            showgrid=False,
+            showline=False,
+            showticklabels=False,
+        ),
+        yaxis2=dict(
+            title='Ratio %',
+            overlaying='y',
+            side='right',
+            titlefont=dict(
+                color='#7f7f7f'
+            ),
+            tickfont=dict(
+                color='#7f7f7f'
+            )
+        )
     )
 
-    return dict(data=my_data, layout=my_layout)
-
+    return go.Figure(data=my_data, layout=layout)
 
 
 # debugging purposes -------------------------------------------------------------------
 if __name__ == '__main__':
     df = load_testresults_todataframe('Data/')
-    update_windroseplot(df, dt(2018,9,4), dt(2018,10,17), ['passed', 'failed_1'])
+    update_barplot(df, dt(2018,9,4), dt(2018,10,17), ['passed', 'failed_2'])
 
 '''
 SAVING INTERESTING PATTERNS
