@@ -413,6 +413,8 @@ def update_barplot(in_df: pd.DataFrame, start: dt.date, end: dt.date, in_focus: 
                 x = [x for x in fail_rate.keys()],
                 y = list(fail_rate.values()),
                 name='Fail Rate ± Standard Deviation',
+                hoverinfo = 'text',
+                text=[(re.search(r'(?<=\.)(\d){2}', str(x)).group(0)+'% ± '+str(y)) for (x, y) in zip(list(fail_rate.values()), [std]*len(list(fail_rate.values())))],
                 yaxis='y2',
                 error_y=dict(
                     type='data',
@@ -434,8 +436,8 @@ def update_barplot(in_df: pd.DataFrame, start: dt.date, end: dt.date, in_focus: 
             color='#7f7f7f'
         ),
         autosize=False,
-        height=500,
-        width=1200,
+        height=800,
+        width=800,
         hoverlabel=dict(namelength=35),
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
@@ -455,7 +457,7 @@ def update_barplot(in_df: pd.DataFrame, start: dt.date, end: dt.date, in_focus: 
             tickfont=dict(
                 color='#7f7f7f'
             ),
-            domain=[0, .9],
+            domain=[0, .7],
             type='log',
             autorange=True,
             showgrid=False,
@@ -465,7 +467,7 @@ def update_barplot(in_df: pd.DataFrame, start: dt.date, end: dt.date, in_focus: 
         yaxis2=dict(
             side='right',
             #overlaying='y',
-            domain=[.8,1],
+            domain=[.7,.9],
             titlefont=dict(
                 color='#7f7f7f'
             ),

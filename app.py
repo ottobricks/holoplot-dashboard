@@ -8,6 +8,7 @@ import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output, State
 from flask import Flask, send_from_directory
+from dash.exceptions import PreventUpdate
 
 import plotly.graph_objs as go
 import pandas as pd
@@ -166,7 +167,6 @@ app.layout = html.Div(style=dict(backgroundColor=colors['lightest']), children=[
                 style=dict(
                     backgroundColor=colors['lightest'],
                     order=1,
-
                 ),
                 children=[dcc.Graph(id='graph1'),]
             ),
@@ -293,7 +293,7 @@ def parse_inputfiles(fnames_to_upload: list, fcontent_to_upload: list) -> pd.Dat
 def update_table(clickData, dropdown_select, json_df, radio):
     '''
     '''
-    if 'd_specs' in radio:
+    if 'd_specs' in radio and (dropdown_select or clickData):
         if clickData or dropdown_select:
             df = pd.read_json(json_df, orient='split').drop(columns=['created_at'], errors='ignore') 
             
@@ -304,9 +304,13 @@ def update_table(clickData, dropdown_select, json_df, radio):
             elif clickData:
                 df = df.loc[df.id==clickData['points'][0]['text'].split(' ',1)[1]]
             
-            return df.to_dict('records'), [{"name": i, "id": i} for i in df.columns if i!='created_at'], dict(display='inline-block'), dict(className='item')
+            return df.to_dict('records'), [{"name": i, "id": i} for i in df.columns if i!='created_at'], dict(display='inline-block'), dict(className='item', alignSelf='flex-start')
+    
+    elif 'f_rate' in radio:
+        return [], [], dict(display='none'), dict(className='item', alignSelf='center',)
+
     else:
-        return [], [], dict(display='none'), dict(className='1 columns', display='inline-block', width='100%')
+        raise PreventUpdate
 
 
 # ---------------- MAIN ------------------------ #
