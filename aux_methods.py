@@ -1,7 +1,7 @@
 import os, re
 import pandas as pd
 from collections import OrderedDict
-from numpy import NaN, unique, arange
+import numpy as np
 from typing import Any
 from datetime import datetime as dt
 from datetime import timedelta
@@ -52,7 +52,7 @@ def parse_test_results(fname):
                 print('FIXED:', tmp)
 
             elif len(tmp)==0:
-                tmp = ['{} {}'.format(feature, NaN) if ('unit' not in feature) else '{} n. {} {}'.format(feature, fname, NaN) for feature in missing_features]
+                tmp = ['{} {}'.format(feature, np.nan) if ('unit' not in feature) else '{} n. {} {}'.format(feature, fname, np.nan) for feature in missing_features]
                 print('FIXED:', tmp)
 
             else:
@@ -96,12 +96,12 @@ def extend_test_results(list_of_strings):
 def clean_timestamp_series(series):
     '''
     '''
-    return series.apply(lambda x: NaN if ('nan' in str(x)) else re.search(r'(\d+\.){5}\d+', str(x)).group(0))
+    return series.apply(lambda x: np.nan if ('nan' in str(x)) else re.search(r'(\d+\.){5}\d+', str(x)).group(0))
 
 def pad_timestamp_series(series):
     '''
     '''
-    return series.apply(lambda x: NaN if ('nan' in str(x)) else '.'.join([y.zfill(2) for y in str(x).split('.')]))
+    return series.apply(lambda x: np.nan if ('nan' in str(x)) else '.'.join([y.zfill(2) for y in str(x).split('.')]))
 
 def parse_timestamp_series(series):
     '''
@@ -112,7 +112,7 @@ def parse_timestamp_series(series):
 
     def find_nearest_neighbor(index, series):
         # finds the nearest neighbor with a valid date                    
-        neighbor_index = NaN
+        neighbor_index = np.nan
         i = index + 1
         j = index - 1
 
@@ -127,7 +127,7 @@ def parse_timestamp_series(series):
             elif j > 1:
                 j -= 1
             
-        return NaN
+        return np.nan
 
     for index, value in series.iteritems():
         NaN_FLAG = pd.isnull(value)
@@ -261,7 +261,7 @@ def load_testresults_todataframe(path, is_csv=False):
     df.created_at = parse_timestamp_series(df.created_at)
 
     # finds and drop rows that have no valid field
-    df.replace(to_replace='nan', value=NaN, inplace=True)
+    df.replace(to_replace='nan', value=np.nan, inplace=True)
     df.dropna(how='all', inplace=True)
     
     # extends the dataframe to have columns states (the number of failed tests if any, or passed if none)
@@ -289,7 +289,7 @@ def update_windroseplot(in_df: pd.DataFrame, start: dt.date, end: dt.date, in_fo
         df = df.loc[start : end]
 
     # we evaluate the number of days in the date_range that are in df
-    td = unique(df[start : end].index)
+    td = np.unique(df[start : end].index)
 
         
 
@@ -334,7 +334,7 @@ def update_windroseplot(in_df: pd.DataFrame, start: dt.date, end: dt.date, in_fo
                     layer = "below traces",
                     showgrid =True,
                     categoryarray = [x for x in range(1,25)],
-                    #nticks= len(unique(df[start : end].index.date)),
+                    #nticks= len(np.unique(df[start : end].index.date)),
                     direction = 'clockwise',
                     rotation=180,
 
@@ -373,12 +373,12 @@ def update_barplot(in_df: pd.DataFrame, start: dt.date, end: dt.date, in_focus: 
     overall_series = {}
     
     for feat in overall_s:
-        overall_series[feat] = df[(df.state==feat)].state.resample('D').count().replace(0, NaN).dropna()
+        overall_series[feat] = df[(df.state==feat)].state.resample('D').count().replace(0, np.nan).dropna()
     
     # for each day, calculate the failure rate
     if not in_focus or (any(['failed' in x for x in in_focus]) and any(['passed' in x for x in in_focus])):
         fail_rate = {}
-        for date in unique(df.index.date):
+        for date in np.unique(df.index.date):
             d = date.strftime('%Y-%m-%d')
             fail_n = sum([y for (x,y) in zip(df[d].state.value_counts().index, df[d].state.value_counts().values) if 'fail' in x])
 
@@ -388,11 +388,14 @@ def update_barplot(in_df: pd.DataFrame, start: dt.date, end: dt.date, in_focus: 
             else:
                 fail_rate[date] = 1
 
+    # calculate the standard deviation for the series
+    std = np.std(list(fail_rate.values()))
+
     # define data properties for our chart
     my_data = [
         go.Bar(
                 #x = overall_series[state].index,
-                x = [x.strftime('%b %d') for x in unique(overall_series[state].index.date)],
+                x = [x.strftime('%b %d') for x in np.unique(overall_series[state].index.date)],
                 y = overall_series[state].values,
                 text = overall_series[state].values,
                 textposition = 'auto',
@@ -405,16 +408,22 @@ def update_barplot(in_df: pd.DataFrame, start: dt.date, end: dt.date, in_focus: 
             ) for (state, color) in zip(overall_series.keys(), colors)
     ]
     if not in_focus or (any(['failed' in x for x in in_focus]) and any(['passed' in x for x in in_focus])):
-        my_data.append(
+        my_data.extend([
             go.Scatter(
-                    mode='lines',
-                    x = [x for x in fail_rate.keys()],
-                    y = list(fail_rate.values()),
-                    name='Fail Rate',
-                    yaxis='y2',
-                    
-                ),
-        )
+                mode='lines',
+                x = [x for x in fail_rate.keys()],
+                y = list(fail_rate.values()),
+                name='Fail Rate',
+                yaxis='y2',
+                error_y=dict(
+                    type='data',
+                    array=[std]*len(list(fail_rate.values())),
+                    visible=True
+                )
+
+            ),
+
+        ])
 
     # define layout properties for our chart
     layout = go.Layout(
@@ -429,8 +438,8 @@ def update_barplot(in_df: pd.DataFrame, start: dt.date, end: dt.date, in_focus: 
         #barmode='group',
         margin={'l': 30, 'r': 30},
         hovermode='closest',
-        bargap=0.5,
-        bargroupgap=0.025,
+        bargap=0.025,
+        bargroupgap=0.005,
         legend=dict(
             x=0,
             y=1.0,
@@ -438,27 +447,35 @@ def update_barplot(in_df: pd.DataFrame, start: dt.date, end: dt.date, in_focus: 
             bordercolor='rgba(255, 255, 255, 0)'
         ),
 
-
         yaxis=dict(
             tickfont=dict(
                 color='#7f7f7f'
             ),
+            domain=[0, 1],
             type='log',
             autorange=True,
             showgrid=False,
             showline=False,
             showticklabels=False,
+            
+
         ),
         yaxis2=dict(
-            title='Ratio %',
-            overlaying='y',
             side='right',
+            #overlaying='y',
+            domain=[0.7, 1],
             titlefont=dict(
                 color='#7f7f7f'
             ),
             tickfont=dict(
                 color='#7f7f7f'
-            )
+            ),
+            autorange=True,
+            #range=[0,1],
+            showgrid=False,
+            showline=False,
+            showticklabels=False,
+            zeroline=False,
         )
     )
 
@@ -476,11 +493,11 @@ SAVING INTERESTING PATTERNS
 [1] - dict of (feature: series) where the series is a resampled count of the occurance of the feature per day (only ones with occurances)
 It could be useful in a pie chart:
 
-features = df.state.unique()
+features = df.state.np.unique()
     feature_series = {}
     
     for feat in features:
-        feature_series[feat] = df[(df.state==feat)].state.resample('D').count().replace(0, NaN).dropna()
+        feature_series[feat] = df[(df.state==feat)].state.resample('D').count().replace(0, np.nan).dropna()
 
 [2] - data field for a graph figure
 

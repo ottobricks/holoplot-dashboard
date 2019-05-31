@@ -37,14 +37,9 @@ def uploaded_files():
             files.append(filename)
     return files
 
-
-def file_download_link(filename):
-    """Create a Plotly Dash 'A' element that downloads a file from the app."""
-    location = "/download/{}".format(urlquote(filename))
-    return html.A(filename, href=location)
 # --------------------------------------------------------------------- #
 
-UPLOAD_DIRECTORY = "./tmp/"
+UPLOAD_DIRECTORY = "./Data/"
 
 if not os.path.exists(UPLOAD_DIRECTORY):
     os.makedirs(UPLOAD_DIRECTORY)
@@ -54,13 +49,6 @@ if not os.path.exists(UPLOAD_DIRECTORY):
 # we can create a route for downloading files directly:
 server = Flask(__name__)
 app = dash.Dash(server=server,external_stylesheets=external_stylesheets)
-
-
-@server.route("/download/<path:path>")
-def download(path):
-    """Serve a file from the upload directory."""
-    return send_from_directory(UPLOAD_DIRECTORY, path, as_attachment=True)
-
 
 # ---------------- DASHBOARD LAYOUT -------------------------- #
 
@@ -262,9 +250,9 @@ def parse_inputfiles(fnames_to_upload: list, fcontent_to_upload: list) -> pd.Dat
     '''
     # load files in the 'tmp/' folder
     files_indisk = uploaded_files()  
-    path = 'tmp/' if files_indisk else 'Data/'  
+    path = 'Data/'  
 
-    if fnames_to_upload is not None and fcontent_to_upload is not None:
+    if fnames_to_upload and fcontent_to_upload:
         
         for name, data in zip(fnames_to_upload, fcontent_to_upload):
             if name not in files_indisk:
