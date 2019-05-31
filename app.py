@@ -72,14 +72,22 @@ app.layout = html.Div(style=dict(backgroundColor=colors['lightest']), children=[
     html.H2(children='Orion Dashboard', style={
         'textAlign': 'center',
     }),
-    html.Div(className='row', children=[
-        
-        # invisible div to save the dataframe
-        html.Div(id='dataframe', style={'display': 'none'}),
-        
-        # Date Picker
-        html.Br(),
-        html.Div(children=[
+    
+    # invisible div to save the dataframe
+    html.Div(id='dataframe', style={'display': 'none'}),
+
+    html.Div(
+        className='container',
+        style=dict(
+            width='30%', display='flex', backgroundColor=colors['lightest'],
+            flexDirection='row', justifyContent='space-evenly',
+        ),    
+        children=[
+            
+            # Date Picker
+            # hmtl.Div(
+            #     children=dcc.DatePickerRange(id='date-range',display_format='D MMM, YYYY',with_portal=True,with_full_screen_portal=False)            
+            # )
             dcc.DatePickerRange(
                 id='date-range-picker',
                 initial_visible_month=dt.today().date(),
@@ -88,28 +96,25 @@ app.layout = html.Div(style=dict(backgroundColor=colors['lightest']), children=[
                 display_format='D MMM, YYYY',
                 with_portal=True,
                 with_full_screen_portal=False,
-                )], className='six columns', style=dict(marginTop='10px', backgroundColor=colors['lightest'], fontSize='small')),
+            ),
 
-        html.Button(id='propagate-button', n_clicks=0, children=[
+            # Upload Button
             dcc.Upload(
                 id="upload-data",
                 children=html.Div(
                     ["Drop file or click to select"]
                 ),
-                style={
-                    "width": "auto",
-                    "height": "auto",
-                    "lineHeight": "auto",
-                    "borderWidth": "0px",
-                    "borderStyle": "dashed",
-                    #"borderRadius": "2px",
-                    "textAlign": "center",
-                    "marginTop": "auto",
-                },
                 multiple=True,
-            )
-        ], style=dict(width='30%', display='inline-block', float='right')),
-    ]),
+            ),
+
+            # Reload Button
+            html.Button(
+                id='propagate-button',                        
+                n_clicks=0,
+                children=[]
+            ),
+        ]
+    ),
     
     html.Div([
         dcc.RadioItems(
@@ -157,7 +162,7 @@ app.layout = html.Div(style=dict(backgroundColor=colors['lightest']), children=[
 )
 def update_datepicker(json_df):
     # sets 'created_at' as DatetimeIndex (necessary for the auxiliary methods in aux_methods.py)
-    df = pd.read_json(json_df)
+    df = pd.read_json(json_df, orient='split')
     df.set_index('created_at', inplace=True)
     df.sort_index(kind='mergesort', inplace=True) 
     
@@ -177,7 +182,7 @@ def update_dropdown_states(json_df, mode, start_date, end_date):
     '''
     '''
     # sets 'created_at' as DatetimeIndex (necessary for the auxiliary methods in aux_methods.py)
-    df = pd.read_json(json_df)
+    df = pd.read_json(json_df, orient='split')
     df.set_index('created_at', inplace=True)
     df.sort_index(kind='mergesort', inplace=True) 
     
@@ -209,7 +214,7 @@ def update_graph1(json_df, start_date, end_date, in_focus, mode):
     '''
     '''
     # sets 'created_at' as DatetimeIndex (necessary for the auxiliary methods in aux_methods.py)
-    df = pd.read_json(json_df)
+    df = pd.read_json(json_df, orient='split')
     df.set_index('created_at', inplace=True)
     df.sort_index(kind='mergesort', inplace=True) 
     
@@ -249,27 +254,28 @@ def display_click_data(clickData):
 #        return [html.Li(file_download_link(filename)) for filename in files]
 
 @app.callback(
-    [Output('dataframe', 'children')],
+    Output('dataframe', 'children'),
     [Input('upload-data', 'filename'), Input('upload-data', 'contents')],
 )
-def parse_inputfiles(uploaded_filenames: list, uploaded_files_content: list) -> pd.DataFrame:
-    if uploaded_filenames is not None and uploaded_files_content is not None:
-        if all([x.rsplit('.',1)[1] == 'txt' for x in uploaded_filenames]):
-            for name, data in zip(uploaded_filenames, uploaded_files_content):
+def parse_inputfiles(fnames_to_upload: list, fcontent_to_upload: list) -> pd.DataFrame:
+    '''
+    '''
+    # load files in the 'tmp/' folder
+    files_indisk = uploaded_files()  
+    path = 'tmp/' if files_indisk else 'Data/'  
+
+    if fnames_to_upload is not None and fcontent_to_upload is not None:
+        
+        for name, data in zip(fnames_to_upload, fcontent_to_upload):
+            if name not in files_indisk:
                 save_file(name, data)
 
-            try:
-                return aux.load_testresults_todataframe('tmp/').to_json()
-            except Exception as e:
-                print('PARSE_NEWINPUT_ERROR:', e)
-                return pd.DataFrame().to_json
-    else:
-        try:
-            return aux.load_testresults_todataframe('tmp/').to_json()
-
-        except Exception as e:
-            print('PARSE_OLDINPUT_ERROR:', e)
-            return pd.DataFrame().to_json()
+    try:
+        return aux.load_testresults_todataframe(path).to_json(date_format='iso', orient='split')
+    
+    except Exception as e:
+        print('PARSE_INPUT_ERROR:', e)
+        return pd.DataFrame().to_json(date_format='iso', orient='split')
 
 
 # @app.callback(
