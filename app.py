@@ -3,10 +3,10 @@ import base64
 from urllib.parse import quote as urlquote
 import os, re, json
 
-import dash
+import dash, dash_table
 import dash_core_components as dcc
 import dash_html_components as html
-from dash.dependencies import Input, Output
+from dash.dependencies import Input, Output, State
 from flask import Flask, send_from_directory
 
 import plotly.graph_objs as go
@@ -109,7 +109,6 @@ app.layout = html.Div(style=dict(backgroundColor=colors['lightest']), children=[
             id='radio_states',
             options=[
                 {'label': 'Failure Rate', 'value': 'f_rate'},
-                {'label': 'Test Points', 'value': 't_points'},
                 {'label': 'Devices', 'value': 'd_specs'}
             ],
             value='f_rate',
@@ -129,6 +128,7 @@ app.layout = html.Div(style=dict(backgroundColor=colors['lightest']), children=[
         
         # data display of clicked items 
         html.Pre(id='click-data'),
+        dash_table.DataTable(id='device-table', columns=[{}])
 
     ], className="row", style={'marginTop': 15, 'marginBottom': 15, 'marginLeft': 20, 'marginRight': 20}),
    
@@ -218,28 +218,13 @@ def update_graph1(json_df, start_date, end_date, in_focus, mode):
 
 
 @app.callback(
-    dash.dependencies.Output('click-data', 'children'),
-    [ dash.dependencies.Input('graph1', 'clickData')]
+    Output('click-data', 'children'),
+    [Input('graph1', 'clickData')],
+    [State('radio_states', 'value')]
 )
-def display_click_data(clickData):
-    return json.dumps(clickData, indent=2)
-
-#@app.callback(
-#    Output("file-list", "children"),
-#    [Input("upload-data", "filename"), Input("upload-data", "contents")],
-#)
-#def update_output(uploaded_filenames, uploaded_file_contents):
-#    """Save uploaded files and regenerate the file list."""
-#
-#    if uploaded_filenames is not None and uploaded_file_contents is not None:
-#        for name, data in zip(uploaded_filenames, uploaded_file_contents):
-#            save_file(name, data)
-#
-#    files = uploaded_files()
-#    if len(files) == 0:
-#        return [html.Li('No files yet!')]
-#    else:
-#        return [html.Li(file_download_link(filename)) for filename in files]
+def display_click_data(clickData, radio_selection):
+    if 'd_specs' in radio_selection:
+        return json.dumps(clickData, indent=2)
 
 @app.callback(
     Output('dataframe', 'children'),
@@ -266,54 +251,25 @@ def parse_inputfiles(fnames_to_upload: list, fcontent_to_upload: list) -> pd.Dat
         return pd.DataFrame().to_json(date_format='iso', orient='split')
 
 
-# @app.callback(
-#     dash.dependencies.Output('stats-in-daterange', 'figure'),
-#     [
-#         dash.dependencies.Input('categories', 'value'),
-#         dash.dependencies.Input('speakers-in-daterange', 'relayoutData')
-#     ])
-# def update_bar_chart(categories, relayoutData):
-#     if categories is None or categories == []:
-#         categories = CATEGORIES
-
-#     if (relayoutData is not None
-#             and (not (relayoutData.get('xaxis.autorange') or relayoutData.get('yaxis.autorange')))):
-#         x0 = dateutil.parser.parse(relayoutData['xaxis.range[0]'])
-#         x1 = dateutil.parser.parse(relayoutData['xaxis.range[1]'])
-#         y0 = 10 ** relayoutData['yaxis.range[0]']
-#         y1 = 10 ** relayoutData['yaxis.range[1]']
-
-#         sub_df = orion_df[orion_df.created_at.between(x0, x1) & orion_df.usd_pledged.between(y0, y1)]
-#     else:
-#         sub_df = orion_df
-
-#     stacked_barchart_df = (
-#         sub_df[sub_df['broader_category'].isin(categories)]['state'].groupby(sub_df['broader_category'])
-#         .value_counts(normalize=False)
-#         .rename('count')
-#         .to_frame()
-#         .reset_index('state')
-#         .pivot(columns='state')
-#         .reset_index()
-#     )
-#     return {
-#         'data': [
-#             go.Bar(
-#                 x=stacked_barchart_df['broader_category'],
-#                 y=stacked_barchart_df['count'][state],
-#                 name=state,
-#                 marker={
-#                     'color': color
-#                 }
-#             ) for (state, color) in zip(STATES[::-1], COLORS[::-1])
-#         ],
-#         'layout': go.Layout(
-#             yaxis={'title': 'Number of projects'},
-#             barmode='stack',
-#             hovermode='closest'
-#         )
-#     }
-
+@app.callback(
+    [Output('device-table', 'columns'),
+     Output('device-table', 'data')],
+     [Input('graph1', 'clickData'),
+      Input('dropdown_states', 'value')],
+     [State('radio_states', 'value')]
+)
+def update_table(clickData, dropdown_selection, radio_selection):
+    if 'd_specs' in radio_selection:
+        # decide whther to show all or none upfront
+        pass
+    
+    elif dropdown_selection:
+        # a new serial number has been provided
+        pass
+    
+    elif clickData:
+        # show the device clicked on
+        pass
 
 # ---------------- MAIN ------------------------ #
 

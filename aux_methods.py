@@ -285,37 +285,35 @@ def update_windroseplot(in_df: pd.DataFrame, start: dt.date, end: dt.date, in_fo
         df = df.loc[start : end]    
 
     else:
-        df = in_df[(in_df.state.isin(in_focus))].copy()
+        df = in_df[(in_df.id.isin(in_focus))].copy()
         df = df.loc[start : end]
-
-    # we evaluate the number of days in the date_range that are in df
-    td = np.unique(df[start : end].index)
 
         
 
     return {
         'data': [
-            go.Scatterpolargl(
-                r = df[start : end].apply(lambda x: float(x.index.strftime('%h')+x.id.split('-',1,)[1]) if 'nan' not in x else 0),
-                theta = df[start : end].index.hour,
-                text='TEST_TEXT',
-                name='TEST_NAME',
+            go.Scatterpolar(
+                r = [10*x for x in np.random.rand(len(df.loc[df.state==state]))],
+                theta = [360*x for x in np.random.rand(len(df.loc[df.state==state]))],
+                text=[str(x) for x in df.loc[df.state==state, 'id'].values],
+                name=state,
                 mode = 'markers',
                 marker = dict(
-                    color = 'rgb(26, 118, 255)',
-                    size = 30,
+                    color = color,
+                    size = 20,
                     opacity=0.7,
                     line = dict(
                         color = "white"
                     ),
                 ),
-            ) 
+            ) for (state, color) in zip(df.state.unique(), colors)
         ],
         'layout': go.Layout(
             title='Test Summary from {} to {} {}'.format(start.strftime('%d %b'), end.day-1, end.strftime('%b, %Y')),
             font=dict(
                 size=18,
             ),
+            hoverlabel=dict(namelength=20),
             showlegend=True,
             legend=dict(
                 font=dict(
@@ -327,29 +325,34 @@ def update_windroseplot(in_df: pd.DataFrame, start: dt.date, end: dt.date, in_fo
                     x = [0, 1],
                     y = [0, 1]
                 ),
-                bgcolor = "rgb(223, 223, 223)",
+                bgcolor = "#344b52",
                 angularaxis = dict(
                     tickwidth = 2,
                     linewidth = 3,
                     layer = "below traces",
-                    showgrid =True,
-                    categoryarray = [x for x in range(1,25)],
+                    #tickvals=,
+                    #ticktext=,
                     #nticks= len(np.unique(df[start : end].index.date)),
+                    showticklabels=False,
+                    showgrid=False,
+                    showline=False,
                     direction = 'clockwise',
                     rotation=180,
 
                 ),
                 radialaxis = dict(
-                    range = [0, 10],
+                    range = [0, 11],
                     showline = True,
                     linewidth = 2,
                     tickwidth = 2,
                     gridcolor = "white",
                     gridwidth = 2,
+                    showgrid=False,
+                    showticklabels=False,
                 ),
                     sector = [0, 180],
             ),
-            #paper_bgcolor = "rgb(223, 223, 223)"
+            paper_bgcolor = "#f5f5f5",
         )
     }
 
@@ -401,7 +404,8 @@ def update_barplot(in_df: pd.DataFrame, start: dt.date, end: dt.date, in_focus: 
                 textposition = 'auto',
                 opacity=1,
                 marker=dict(
-                    color=color
+                    color=color,
+
                 ),
                 name=state,
                 
@@ -413,7 +417,7 @@ def update_barplot(in_df: pd.DataFrame, start: dt.date, end: dt.date, in_focus: 
                 mode='lines',
                 x = [x for x in fail_rate.keys()],
                 y = list(fail_rate.values()),
-                name='Fail Rate',
+                name='Fail Rate ± Standard Deviation',
                 yaxis='y2',
                 error_y=dict(
                     type='data',
@@ -433,6 +437,7 @@ def update_barplot(in_df: pd.DataFrame, start: dt.date, end: dt.date, in_focus: 
             size=15,
             color='#7f7f7f'
         ),
+        hoverlabel=dict(namelength=35),
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
         #barmode='group',
