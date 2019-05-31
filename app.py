@@ -24,9 +24,16 @@ Move this to aux_method.py whenever possible
 '''
 def save_file(name, content):
     """Decode and store a file uploaded with Plotly Dash."""
-    data = content.encode("utf8").split(b";base64,")[1]
-    with open(os.path.join(UPLOAD_DIRECTORY, name), "wb") as fp:
-        fp.write(base64.decodebytes(data))
+    try:
+        data = content.encode("utf8").split(b";base64,")[1]
+    
+    except Exception as e:
+        print('SAVE_FILE_ERROR:', name, e)
+        pass
+    
+    else:
+        with open(os.path.join(UPLOAD_DIRECTORY, name), "wb") as fp:
+            fp.write(base64.decodebytes(data))
 
 
 def uploaded_files():
