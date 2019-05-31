@@ -325,7 +325,7 @@ def update_table(clickData, dropdown_select, json_df, radio):
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     #debug = os.environ.get('PRODUCTION') is None
-    app.run_server(debug=True, host='0.0.0.0', port=port)
+    app.run_server(debug=False, host='0.0.0.0', port=port)
 
 
 '''
