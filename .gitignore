@@ -108,5 +108,6 @@ venv.bak/
 
 # Data
 Data/
+tmp/
 
 logfile

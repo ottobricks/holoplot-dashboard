@@ -3,11 +3,12 @@ import base64
 from urllib.parse import quote as urlquote
 import os, re, json
 
-import dash
+import dash, dash_table
 import dash_core_components as dcc
 import dash_html_components as html
-from dash.dependencies import Input, Output
+from dash.dependencies import Input, Output, State
 from flask import Flask, send_from_directory
+from dash.exceptions import PreventUpdate
 
 import plotly.graph_objs as go
 import pandas as pd
@@ -37,14 +38,9 @@ def uploaded_files():
             files.append(filename)
     return files
 
-
-def file_download_link(filename):
-    """Create a Plotly Dash 'A' element that downloads a file from the app."""
-    location = "/download/{}".format(urlquote(filename))
-    return html.A(filename, href=location)
 # --------------------------------------------------------------------- #
 
-UPLOAD_DIRECTORY = "./tmp/"
+UPLOAD_DIRECTORY = "./Data/"
 
 if not os.path.exists(UPLOAD_DIRECTORY):
     os.makedirs(UPLOAD_DIRECTORY)
@@ -54,227 +50,267 @@ if not os.path.exists(UPLOAD_DIRECTORY):
 # we can create a route for downloading files directly:
 server = Flask(__name__)
 app = dash.Dash(server=server,external_stylesheets=external_stylesheets)
-
-
-@server.route("/download/<path:path>")
-def download(path):
-    """Serve a file from the upload directory."""
-    return send_from_directory(UPLOAD_DIRECTORY, path, as_attachment=True)
-
-
-# ---------------- LOAD THE DATAFRAME ------------------------ #
-
-orion_df = aux.load_testresults_todataframe('Data/')
-
-
+app.config['suppress_callback_exceptions'] = True
 
 # ---------------- DASHBOARD LAYOUT -------------------------- #
+
+# custom layout ---------------------------------------------- #
+app.index_string = '''
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>{%title%}</title>
+        {%favicon%}
+        {%css%}
+    </head>
+    <body>
+        {%app_entry%}
+        <footer>
+            {%config%}
+            {%scripts%}
+            {%renderer%}
+        </footer>
+        <hr>
+        <div>Copyright (C) 2019  Otto von Sperling under GPLv3</div>
+    </body>
+</html>
+'''
 
 # colorscheme ------------------------------------------------ #
 colors = dict(darkest='#344b52', darker='#597f8a', lightest='#f5f5f5', pastel='#cfd3ca', lighter='#a1bdc2')
 
 # HTMLish ---------------------------------------------------- #
 app.layout = html.Div(style=dict(backgroundColor=colors['lightest']), children=[
-    html.H2(children='Orion Dashboard', style={
-        'textAlign': 'center',
-    }),
-    html.Div(className='row', children=[
-        
-        # Date Picker
-        html.Div(children=[
+    html.Div(
+        className='container',
+        style=dict(display='flex', justifyContent='center'),
+        children=[
+            html.Img(src='/assets/favicon.ico', style=dict(height='50px', marginTop='2%', marginRight='10px')),
+            html.H2(children='Orion Dashboard', style=dict(textAlign='center', marginTop='2.2%')),
+        ]
+    ),
+    
+    # invisible div to save the dataframe
+    html.Div(id='dataframe', style={'display': 'none'}),
+
+    html.Div(
+        className='3 rows',
+        style=dict(backgroundColor=colors['lightest']),    
+        children=[
+            
+            # Date Picker
+            # hmtl.Div(
+            #     children=dcc.DatePickerRange(id='date-range',display_format='D MMM, YYYY',with_portal=True,with_full_screen_portal=False)            
+            # )
             dcc.DatePickerRange(
                 id='date-range-picker',
-                initial_visible_month = dt(orion_df.index.max().year,
-                                           orion_df.index.max().month, 1),
-                start_date = orion_df.index.max().date() - timedelta(days=15),
-                end_date = orion_df.index.max().date() + timedelta(days=1),
-                min_date_allowed = orion_df.index.min().date(),
-                max_date_allowed = orion_df.index.max().date() + timedelta(days=1),
+                style=dict(backgroundColor=colors['lightest'], fontSize='16px'),
+                initial_visible_month=dt.today(),
+                start_date=dt.today().date() - timedelta(days=30),
+                end_date=dt.today().date(),
                 display_format='D MMM, YYYY',
-                with_portal=True,
+                with_portal=False,
                 with_full_screen_portal=False,
-                )], className='six columns', style=dict(marginTop='10px', backgroundColor=colors['lightest'], fontSize='small')),
+            ),
 
-        html.Div([
+            # Upload Button
             dcc.Upload(
                 id="upload-data",
+                style=dict(
+                    width='12%',
+                    float="right",
+                    border='1px solid gray',
+                    textAlign='center',
+                    # display='inline-block',
+                    marginBottom='1%',
+                    fontSize='14px',
+                    # padding='5px 5px',
+                    borderRadius='4px',
+
+                ),
                 children=html.Div(
                     ["Drop file or click to select"]
                 ),
-                style={
-                    "width": "60%",
-                    "height": "40px",
-                    "lineHeight": "40px",
-                    "borderWidth": "1px",
-                    "borderStyle": "dashed",
-                    "display": "inline-block",
-                    #"borderRadius": "2px",
-                    "textAlign": "center",
-                    "marginTop": "10px",
-                    "float": "right",
-                },
-                multiple=True,
-            )], className='six columns',)
-
-    ]),
+                multiple=True),
+        ]
+    ),
     
-    html.Div([
-        dcc.RadioItems(
-            id='radio_states',
-            options=[
-                {'label': 'Failure Rate', 'value': 'f_rate'},
-                {'label': 'Test Points', 'value': 't_points'},
-                {'label': 'Devices', 'value': 'd_specs'}
-            ],
-            value='f_rate',
-            labelStyle={'display': 'inline-block'}
-        ),
-        
-        dcc.Dropdown(
-            id='dropdown_states',
-            multi=True
-        )
-    ], className="row", style={'marginTop': 15, 'marginBottom': 15}),
+    html.Div(
+        className='3 rows',
+        style=dict(backgroundColor=colors['lightest']), 
+        children=[
 
-    html.Div([
-        dcc.Graph(
-            id='graph1',
-        ),
-        
-        # data display of clicked items 
-        html.Pre(id='click-data'),
+            dcc.RadioItems(
+                id='radio-select',
+                style=dict(marginTop='5px'),
+                options=[
+                    {'label': 'Failure Rate', 'value': 'f_rate'},
+                    {'label': 'Devices', 'value': 'd_specs'}
+                ],
+                value='f_rate',
+                labelStyle={'display': 'inline-block'}
+            ),
+            
+            dcc.Dropdown(id='dropdown-select',multi=True)
+        ]
+    ),
 
-    ], className="row", style={'marginTop': 15, 'marginBottom': 15, 'marginLeft': 20, 'marginRight': 20}),
-   
-    html.Div([
-        html.H3("File List"),
-        html.Ul(id="file-list"),    
-    ], className='column', style=dict(float='left')),
+    html.Div(
+        id='main-div',
+        className='3 rows container',
+        style=dict(backgroundColor=colors['lightest'], display='flex', width='100%'), 
+        children=[
+            
+            html.Div(
+                id='graph-div',
+                className='item',
+                style=dict(
+                    backgroundColor=colors['lightest'],
+                    order=1,
+                ),
+                children=[dcc.Graph(id='graph1'),]
+            ),
+            
+            html.Div(
+                className='item',
+                style=dict(
+                    backgroundColor=colors['lightest'],
+                    order=2,
+                ), 
+                children=[
+                    html.Div(id='datatable-div',style=dict(display='none'),children=[dash_table.DataTable(id='datatable', data=[],columns=[{}])])]    
+            ),
+        ]),
+    
+
 ])
 
 # ---------------- DASHBOARD INTERACTIONS ------------------------ #
 
 @app.callback(
-    dash.dependencies.Output('dropdown_states', 'options'),
-    [
-        dash.dependencies.Input('radio_states', 'value'),
-        dash.dependencies.Input('date-range-picker', 'start_date'),
-        dash.dependencies.Input('date-range-picker', 'end_date')
-    ]
+        [Output('date-range-picker', 'initial_visible_month'),
+        Output('date-range-picker', 'start_date'),
+        Output('date-range-picker', 'end_date'),
+        Output('date-range-picker', 'min_date_allowed'),
+        Output('date-range-picker', 'max_date_allowed')],
+        [Input('dataframe', 'children')]
 )
-def update_dropdown_states(mode: str, start_date: str, end_date: str) -> list:
+def update_datepicker(json_df):
+    # sets 'created_at' as DatetimeIndex (necessary for the auxiliary methods in aux_methods.py)
+    df = pd.read_json(json_df, orient='split')
+    df.set_index('created_at', inplace=True)
+    df.sort_index(kind='mergesort', inplace=True) 
+    
+    return dt(df.index.max().year, df.index.max().month, 1), df.index.max().date() - timedelta(days=15),df.index.max().date() + timedelta(days=1), df.index.min().date(), df.index.max().date() + timedelta(days=1)
+
+
+@app.callback(
+    [Output('dropdown-select', 'options'),Output('dropdown-select', 'value')],
+    [Input('dataframe', 'children'),Input('radio-select', 'value'),Input('date-range-picker', 'start_date'),Input('date-range-picker', 'end_date')],
+    [State('dropdown-select', 'value')]
+)
+def update_dropdown_states(json_df, mode, start_date, end_date, previous_selection):
     '''
     '''
+    if previous_selection:
+        pass
+
+    # sets 'created_at' as DatetimeIndex (necessary for the auxiliary methods in aux_methods.py)
+    df = pd.read_json(json_df, orient='split')
+    df.set_index('created_at', inplace=True)
+    df.sort_index(kind='mergesort', inplace=True) 
+    
     start = dt.strptime(start_date, '%Y-%m-%d')
     end = dt.strptime(end_date, '%Y-%m-%d')
 
     if mode == 'f_rate':
-        return [{'label': ' '.join(i.split('_')).title(), 'value': i} for i in ['passed', 'failed_1', 'failed_2', 'failed_3', 'failed_all']]
-    
-    elif mode == 't_points':
-        return [{'label': i.title(), 'value': i} for i in ['response', 'polarity', 'rub+buzz', 'thd']]
+        return [{'label': ' '.join(i.split('_')).title(), 'value': i} for i in ['passed', 'failed_1', 'failed_2', 'failed_3', 'failed_all']], []
 
     elif mode == 'd_specs':
         if start is not None and end is not None:
-            return [{'label': i.title(), 'value': i} for i in orion_df.loc[start : end].id.values]
+            return [{'label': i.title(), 'value': i} for i in df.loc[start : end].id.values], []
 
 
 @app.callback(
     dash.dependencies.Output('graph1', 'figure'),
     [
+        dash.dependencies.Input('dataframe', 'children'),
         dash.dependencies.Input('date-range-picker', 'start_date'),
         dash.dependencies.Input('date-range-picker', 'end_date'),
-        dash.dependencies.Input('dropdown_states', 'value'),
-        dash.dependencies.Input('radio_states', 'value')
+        dash.dependencies.Input('dropdown-select', 'value'),
+        dash.dependencies.Input('radio-select', 'value'),
     ]
 )
-def update_graph1(start_date: str, end_date: str, in_focus: list, mode: str) -> dict:
+def update_graph1(json_df, start_date, end_date, in_focus, mode):
     '''
     '''
+    # sets 'created_at' as DatetimeIndex (necessary for the auxiliary methods in aux_methods.py)
+    df = pd.read_json(json_df, orient='split')
+    df.set_index('created_at', inplace=True)
+    df.sort_index(kind='mergesort', inplace=True) 
+    
     # transform into datetime.date object
     start = dt.strptime(start_date, '%Y-%m-%d')
     end = dt.strptime(end_date, '%Y-%m-%d')
 
     if mode == 'f_rate':
-        return aux.update_barplot(orion_df, start, end, in_focus)
+        return aux.update_barplot(df, start, end, in_focus)
 
     elif mode == 'd_specs':
-        return aux.update_windroseplot(orion_df, start, end, in_focus)
+        return aux.update_windroseplot(df, start, end, in_focus)
 
 
 @app.callback(
-    dash.dependencies.Output('click-data', 'children'),
-    [
-        dash.dependencies.Input('graph1', 'clickData')
-    ]
+    Output('dataframe', 'children'),
+    [Input('upload-data', 'filename'), Input('upload-data', 'contents')],
 )
-def display_click_data(clickData):
-    return json.dumps(clickData, indent=2)
+def parse_inputfiles(fnames_to_upload: list, fcontent_to_upload: list) -> pd.DataFrame:
+    '''
+    '''
+    # load files in the 'tmp/' folder
+    files_indisk = uploaded_files()  
+    path = 'Data/'  
+
+    if fnames_to_upload and fcontent_to_upload:
+        
+        for name, data in zip(fnames_to_upload, fcontent_to_upload):
+            if name not in files_indisk:
+                save_file(name, data)
+
+    try:
+        return aux.load_testresults_todataframe(path).to_json(date_format='iso', orient='split')
+    
+    except Exception as e:
+        print('PARSE_INPUT_ERROR:', e)
+        return []
+
 
 @app.callback(
-    Output("file-list", "children"),
-    [Input("upload-data", "filename"), Input("upload-data", "contents")],
+    [Output('datatable', 'data'),Output('datatable', 'columns'), Output('datatable-div', 'style'), Output('graph-div', 'style')],
+    [Input('graph1', 'clickData'),Input('dropdown-select', 'value')],
+    [State('dataframe', 'children'),State('radio-select', 'value')]
 )
-def update_output(uploaded_filenames, uploaded_file_contents):
-    """Save uploaded files and regenerate the file list."""
+def update_table(clickData, dropdown_select, json_df, radio):
+    '''
+    '''
+    if 'd_specs' in radio and (dropdown_select or clickData):
+        if clickData or dropdown_select:
+            df = pd.read_json(json_df, orient='split').drop(columns=['created_at'], errors='ignore') 
+            
+            if dropdown_select:
+                # pick the devices selected in the dropdown option
+                df = df.loc[[True if str(x) in dropdown_select else False for x in df.id]]
+            
+            elif clickData:
+                df = df.loc[df.id==clickData['points'][0]['text'].split(' ',1)[1]]
+            
+            return df.to_dict('records'), [{"name": i, "id": i} for i in df.columns if i!='created_at'], dict(display='inline-block'), dict(className='item', alignSelf='flex-start')
+    
+    elif 'f_rate' in radio:
+        return [], [], dict(display='none'), dict(className='item', alignSelf='center',)
 
-    if uploaded_filenames is not None and uploaded_file_contents is not None:
-        for name, data in zip(uploaded_filenames, uploaded_file_contents):
-            save_file(name, data)
-
-    files = uploaded_files()
-    if len(files) == 0:
-        return [html.Li("No files yet!")]
     else:
-        return [html.Li(file_download_link(filename)) for filename in files]
-
-# @app.callback(
-#     dash.dependencies.Output('stats-in-daterange', 'figure'),
-#     [
-#         dash.dependencies.Input('categories', 'value'),
-#         dash.dependencies.Input('speakers-in-daterange', 'relayoutData')
-#     ])
-# def update_bar_chart(categories, relayoutData):
-#     if categories is None or categories == []:
-#         categories = CATEGORIES
-
-#     if (relayoutData is not None
-#             and (not (relayoutData.get('xaxis.autorange') or relayoutData.get('yaxis.autorange')))):
-#         x0 = dateutil.parser.parse(relayoutData['xaxis.range[0]'])
-#         x1 = dateutil.parser.parse(relayoutData['xaxis.range[1]'])
-#         y0 = 10 ** relayoutData['yaxis.range[0]']
-#         y1 = 10 ** relayoutData['yaxis.range[1]']
-
-#         sub_df = orion_df[orion_df.created_at.between(x0, x1) & orion_df.usd_pledged.between(y0, y1)]
-#     else:
-#         sub_df = orion_df
-
-#     stacked_barchart_df = (
-#         sub_df[sub_df['broader_category'].isin(categories)]['state'].groupby(sub_df['broader_category'])
-#         .value_counts(normalize=False)
-#         .rename('count')
-#         .to_frame()
-#         .reset_index('state')
-#         .pivot(columns='state')
-#         .reset_index()
-#     )
-#     return {
-#         'data': [
-#             go.Bar(
-#                 x=stacked_barchart_df['broader_category'],
-#                 y=stacked_barchart_df['count'][state],
-#                 name=state,
-#                 marker={
-#                     'color': color
-#                 }
-#             ) for (state, color) in zip(STATES[::-1], COLORS[::-1])
-#         ],
-#         'layout': go.Layout(
-#             yaxis={'title': 'Number of projects'},
-#             barmode='stack',
-#             hovermode='closest'
-#         )
-#     }
+        raise PreventUpdate
 
 
 # ---------------- MAIN ------------------------ #
@@ -283,3 +319,23 @@ if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     #debug = os.environ.get('PRODUCTION') is None
     app.run_server(debug=True, host='0.0.0.0', port=port)
+
+
+'''
+Copyright (C) 2019  Otto von Sperling
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>
+    
+    full license: https://www.gnu.org/licenses/gpl-3.0.en.html
+'''
