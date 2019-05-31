@@ -315,9 +315,9 @@ def update_windroseplot(in_df: pd.DataFrame, start: dt.date, end: dt.date, in_fo
             hoverlabel=dict(namelength=20),
             showlegend=True,
             legend=dict(font=dict(size=16)),
-            autosize=False,
-            width=1700,
-            height=800,
+            autosize=True,
+            #width=1700,
+            #height=800,
             polar = dict(
                 domain = dict(
                     x = [0, 1],
@@ -388,8 +388,8 @@ def update_barplot(in_df: pd.DataFrame, start: dt.date, end: dt.date, in_focus: 
             else:
                 fail_rate[date] = 1
 
-    # calculate the standard deviation for the series
-    std = np.std(list(fail_rate.values()))
+        # calculate the standard deviation for the series
+        std = np.std(list(fail_rate.values()))
 
     # define data properties for our chart
     my_data = [

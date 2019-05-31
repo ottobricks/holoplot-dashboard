@@ -66,7 +66,7 @@ app.layout = html.Div(style=dict(backgroundColor=colors['lightest']), children=[
     html.Div(id='dataframe', style={'display': 'none'}),
 
     html.Div(
-        className=' 4rows',
+        className='3 rows',
         style=dict(backgroundColor=colors['lightest']),    
         children=[
             
@@ -108,7 +108,7 @@ app.layout = html.Div(style=dict(backgroundColor=colors['lightest']), children=[
     ),
     
     html.Div(
-        className='4 rows',
+        className='3 rows',
         style=dict(backgroundColor=colors['lightest']), 
         children=[
 
@@ -129,31 +129,33 @@ app.layout = html.Div(style=dict(backgroundColor=colors['lightest']), children=[
 
     html.Div(
         id='main-div',
-        className='4 rows',
-        style=dict(backgroundColor=colors['lightest'], display='inline-block', width='100%'), 
+        className='3 rows container',
+        style=dict(backgroundColor=colors['lightest'], display='flex', width='100%'), 
         children=[
-            dcc.Graph(id='graph1'),
+            
+            html.Div(
+                id='graph-div',
+                className='item',
+                style=dict(
+                    backgroundColor=colors['lightest'],
+                    order=1,
+
+                ),
+                children=[dcc.Graph(id='graph1'),]
+            ),
+            
+            html.Div(
+                className='item',
+                style=dict(
+                    backgroundColor=colors['lightest'],
+                    order=2,
+                ), 
+                children=[
+                    html.Div(id='datatable-div',style=dict(display='none'),children=[dash_table.DataTable(id='datatable', data=[],columns=[{}])])]    
+            ),
         ]),
     
-    html.Div(
-        className='4 rows',
-        style=dict(backgroundColor=colors['lightest']), 
-        children=[
-                        # data display of clicked items 
-            html.Pre(id='click-data'),
-            # dash_table.DataTable(
-            #     id='device-table',
-            #     columns=[dict(name=x.title(), id=x) for x in ['id', 'overall', 'response', 'polarity', 'rub+buzz', 'thd']]
-            # )
-            html.Div(id='show-table-button'),
-            html.Div(id='datatable-content'),
-            # html.Div(dash_table.DataTable(columns=[{}]), style={'display': 'none'})
-        ]),
 
-#    html.Div([
-#        html.H3("File List"),
-#        html.Ul(id="file-list"),    
-#    ], className='column', style=dict(float='left')),
 ])
 
 # ---------------- DASHBOARD INTERACTIONS ------------------------ #
@@ -176,17 +178,16 @@ def update_datepicker(json_df):
 
 
 @app.callback(
-    dash.dependencies.Output('dropdown-select', 'options'),
-    [
-        Input('dataframe', 'children'),
-        Input('radio-select', 'value'),
-        Input('date-range-picker', 'start_date'),
-        Input('date-range-picker', 'end_date'),
-    ]
+    [Output('dropdown-select', 'options'),Output('dropdown-select', 'value')],
+    [Input('dataframe', 'children'),Input('radio-select', 'value'),Input('date-range-picker', 'start_date'),Input('date-range-picker', 'end_date')],
+    [State('dropdown-select', 'value')]
 )
-def update_dropdown_states(json_df, mode, start_date, end_date):
+def update_dropdown_states(json_df, mode, start_date, end_date, previous_selection):
     '''
     '''
+    if previous_selection:
+        pass
+
     # sets 'created_at' as DatetimeIndex (necessary for the auxiliary methods in aux_methods.py)
     df = pd.read_json(json_df, orient='split')
     df.set_index('created_at', inplace=True)
@@ -196,14 +197,11 @@ def update_dropdown_states(json_df, mode, start_date, end_date):
     end = dt.strptime(end_date, '%Y-%m-%d')
 
     if mode == 'f_rate':
-        return [{'label': ' '.join(i.split('_')).title(), 'value': i} for i in ['passed', 'failed_1', 'failed_2', 'failed_3', 'failed_all']]
-    
-    elif mode == 't_points':
-        return [{'label': i.title(), 'value': i} for i in ['response', 'polarity', 'rub+buzz', 'thd']]
+        return [{'label': ' '.join(i.split('_')).title(), 'value': i} for i in ['passed', 'failed_1', 'failed_2', 'failed_3', 'failed_all']], []
 
     elif mode == 'd_specs':
         if start is not None and end is not None:
-            return [{'label': i.title(), 'value': i} for i in df.loc[start : end].id.values]
+            return [{'label': i.title(), 'value': i} for i in df.loc[start : end].id.values], []
 
 
 @app.callback(
@@ -236,16 +234,6 @@ def update_graph1(json_df, start_date, end_date, in_focus, mode):
 
 
 @app.callback(
-    Output('click-data', 'children'),
-    [Input('graph1', 'clickData')],
-    [State('radio-select', 'value')]
-)
-def display_click_data(clickData, radio_selection):
-    if 'd_specs' in radio_selection:
-        return json.dumps(clickData, indent=2)
-
-
-@app.callback(
     Output('dataframe', 'children'),
     [Input('upload-data', 'filename'), Input('upload-data', 'contents')],
 )
@@ -270,41 +258,28 @@ def parse_inputfiles(fnames_to_upload: list, fcontent_to_upload: list) -> pd.Dat
         return []
 
 
-@app.callback(Output('show-table-button', 'children'), [Input('radio-select', 'value')])
-def render_tablebutton(radio_select):
-    if 'd_specs' in radio_select:
-        return html.Button(id='table-button', n_clicks=0, children='Show table'),
-
-
-@app.callback(Output('datatable-content', 'children'), [Input('table-button', 'n_clicks')])
-def display_output(n_clicks):
-    if n_clicks > 0:
-        return html.Div(children=[
-            dash_table.DataTable(
-                id='datatable',
-                data=[],
-                columns=[{}]
-            )
-        ])
-
-
 @app.callback(
-    [Output('datatable', 'data'), Output('datatable', 'columns')],
-    [Input('datatable-content', 'children'),
-     Input('dropdown-select', 'value')],
-    [State('dataframe', 'children')]
+    [Output('datatable', 'data'),Output('datatable', 'columns'), Output('datatable-div', 'style'), Output('graph-div', 'style')],
+    [Input('graph1', 'clickData'),Input('dropdown-select', 'value')],
+    [State('dataframe', 'children'),State('radio-select', 'value')]
 )
-def update_table(signal, dropdown_select, json_df):
+def update_table(clickData, dropdown_select, json_df, radio):
     '''
     '''
-    if signal is not None:
-        df = pd.read_json(json_df, orient='split')
-        
-        if dropdown_select:
-            # pick the devices selected in the dropdown option
-            df = df.loc[[True if str(x) in dropdown_select else False for x in df.id]]
-        
-        return df.to_dict('records'), [{"name": i, "id": i} for i in df.columns]
+    if 'd_specs' in radio:
+        if clickData or dropdown_select:
+            df = pd.read_json(json_df, orient='split').drop(columns=['created_at'], errors='ignore') 
+            
+            if dropdown_select:
+                # pick the devices selected in the dropdown option
+                df = df.loc[[True if str(x) in dropdown_select else False for x in df.id]]
+            
+            elif clickData:
+                df = df.loc[df.id==clickData['points'][0]['text'].split(' ',1)[1]]
+            
+            return df.to_dict('records'), [{"name": i, "id": i} for i in df.columns if i!='created_at'], dict(display='inline-block'), dict(className='item')
+    else:
+        return [], [], dict(display='none'), dict(className='1 columns', display='inline')
 
 
 # ---------------- MAIN ------------------------ #
