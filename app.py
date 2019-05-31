@@ -53,14 +53,41 @@ app.config['suppress_callback_exceptions'] = True
 
 # ---------------- DASHBOARD LAYOUT -------------------------- #
 
+# custom layout ---------------------------------------------- #
+app.index_string = '''
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>{%title%}</title>
+        {%favicon%}
+        {%css%}
+    </head>
+    <body>
+        {%app_entry%}
+        <footer>
+            {%config%}
+            {%scripts%}
+            {%renderer%}
+        </footer>
+        <hr>
+        <div>Copyright (C) 2019  Otto von Sperling under GPLv3</div>
+    </body>
+</html>
+'''
+
 # colorscheme ------------------------------------------------ #
 colors = dict(darkest='#344b52', darker='#597f8a', lightest='#f5f5f5', pastel='#cfd3ca', lighter='#a1bdc2')
 
 # HTMLish ---------------------------------------------------- #
 app.layout = html.Div(style=dict(backgroundColor=colors['lightest']), children=[
-    html.H2(children='Orion Dashboard', style={
-        'textAlign': 'center',
-    }),
+    html.Div(
+        className='container',
+        style=dict(display='flex', justifyContent='center'),
+        children=[
+            html.Img(src='/assets/favicon.ico', style=dict(height='50px', marginTop='2%', marginRight='10px')),
+            html.H2(children='Orion Dashboard', style=dict(textAlign='center', marginTop='2.2%')),
+        ]
+    ),
     
     # invisible div to save the dataframe
     html.Div(id='dataframe', style={'display': 'none'}),
@@ -279,7 +306,7 @@ def update_table(clickData, dropdown_select, json_df, radio):
             
             return df.to_dict('records'), [{"name": i, "id": i} for i in df.columns if i!='created_at'], dict(display='inline-block'), dict(className='item')
     else:
-        return [], [], dict(display='none'), dict(className='1 columns', display='inline')
+        return [], [], dict(display='none'), dict(className='1 columns', display='inline-block', width='100%')
 
 
 # ---------------- MAIN ------------------------ #
@@ -288,3 +315,23 @@ if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     #debug = os.environ.get('PRODUCTION') is None
     app.run_server(debug=True, host='0.0.0.0', port=port)
+
+
+'''
+Copyright (C) 2019  Otto von Sperling
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>
+    
+    full license: https://www.gnu.org/licenses/gpl-3.0.en.html
+'''

@@ -434,7 +434,8 @@ def update_barplot(in_df: pd.DataFrame, start: dt.date, end: dt.date, in_focus: 
             color='#7f7f7f'
         ),
         autosize=False,
-        height=700,
+        height=500,
+        width=1200,
         hoverlabel=dict(namelength=35),
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
