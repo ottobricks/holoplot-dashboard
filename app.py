@@ -62,12 +62,6 @@ def download(path):
     return send_from_directory(UPLOAD_DIRECTORY, path, as_attachment=True)
 
 
-# ---------------- LOAD THE DATAFRAME ------------------------ #
-
-orion_df = aux.load_testresults_todataframe('Data/')
-
-
-
 # ---------------- DASHBOARD LAYOUT -------------------------- #
 
 # colorscheme ------------------------------------------------ #
@@ -80,42 +74,41 @@ app.layout = html.Div(style=dict(backgroundColor=colors['lightest']), children=[
     }),
     html.Div(className='row', children=[
         
+        # invisible div to save the dataframe
+        html.Div(id='dataframe', style={'display': 'none'}),
+        
         # Date Picker
+        html.Br(),
         html.Div(children=[
             dcc.DatePickerRange(
                 id='date-range-picker',
-                initial_visible_month = dt(orion_df.index.max().year,
-                                           orion_df.index.max().month, 1),
-                start_date = orion_df.index.max().date() - timedelta(days=15),
-                end_date = orion_df.index.max().date() + timedelta(days=1),
-                min_date_allowed = orion_df.index.min().date(),
-                max_date_allowed = orion_df.index.max().date() + timedelta(days=1),
+                initial_visible_month=dt.today().date(),
+                start_date=dt.today().date() - timedelta(days=30),
+                end_date=dt.today().date(),
                 display_format='D MMM, YYYY',
                 with_portal=True,
                 with_full_screen_portal=False,
                 )], className='six columns', style=dict(marginTop='10px', backgroundColor=colors['lightest'], fontSize='small')),
 
-        html.Div([
+        html.Button(id='propagate-button', n_clicks=0, children=[
             dcc.Upload(
                 id="upload-data",
                 children=html.Div(
                     ["Drop file or click to select"]
                 ),
                 style={
-                    "width": "60%",
-                    "height": "40px",
-                    "lineHeight": "40px",
-                    "borderWidth": "1px",
+                    "width": "auto",
+                    "height": "auto",
+                    "lineHeight": "auto",
+                    "borderWidth": "0px",
                     "borderStyle": "dashed",
-                    "display": "inline-block",
                     #"borderRadius": "2px",
                     "textAlign": "center",
-                    "marginTop": "10px",
-                    "float": "right",
+                    "marginTop": "auto",
                 },
                 multiple=True,
-            )], className='six columns',)
-
+            )
+        ], style=dict(width='30%', display='inline-block', float='right')),
     ]),
     
     html.Div([
@@ -146,25 +139,48 @@ app.layout = html.Div(style=dict(backgroundColor=colors['lightest']), children=[
 
     ], className="row", style={'marginTop': 15, 'marginBottom': 15, 'marginLeft': 20, 'marginRight': 20}),
    
-    html.Div([
-        html.H3("File List"),
-        html.Ul(id="file-list"),    
-    ], className='column', style=dict(float='left')),
+#    html.Div([
+#        html.H3("File List"),
+#        html.Ul(id="file-list"),    
+#    ], className='column', style=dict(float='left')),
 ])
 
 # ---------------- DASHBOARD INTERACTIONS ------------------------ #
 
 @app.callback(
+        [Output('date-range-picker', 'initial_visible_month'),
+        Output('date-range-picker', 'start_date'),
+        Output('date-range-picker', 'end_date'),
+        Output('date-range-picker', 'min_date_allowed'),
+        Output('date-range-picker', 'max_date_allowed')],
+        [Input('dataframe', 'children')]
+)
+def update_datepicker(json_df):
+    # sets 'created_at' as DatetimeIndex (necessary for the auxiliary methods in aux_methods.py)
+    df = pd.read_json(json_df)
+    df.set_index('created_at', inplace=True)
+    df.sort_index(kind='mergesort', inplace=True) 
+    
+    return dt(df.index.max().year, df.index.max().month, 1), df.index.max().date() - timedelta(days=15),df.index.max().date() + timedelta(days=1), df.index.min().date(), df.index.max().date() + timedelta(days=1)
+
+
+@app.callback(
     dash.dependencies.Output('dropdown_states', 'options'),
     [
-        dash.dependencies.Input('radio_states', 'value'),
-        dash.dependencies.Input('date-range-picker', 'start_date'),
-        dash.dependencies.Input('date-range-picker', 'end_date')
+        Input('dataframe', 'children'),
+        Input('radio_states', 'value'),
+        Input('date-range-picker', 'start_date'),
+        Input('date-range-picker', 'end_date'),
     ]
 )
-def update_dropdown_states(mode: str, start_date: str, end_date: str) -> list:
+def update_dropdown_states(json_df, mode, start_date, end_date):
     '''
     '''
+    # sets 'created_at' as DatetimeIndex (necessary for the auxiliary methods in aux_methods.py)
+    df = pd.read_json(json_df)
+    df.set_index('created_at', inplace=True)
+    df.sort_index(kind='mergesort', inplace=True) 
+    
     start = dt.strptime(start_date, '%Y-%m-%d')
     end = dt.strptime(end_date, '%Y-%m-%d')
 
@@ -176,57 +192,85 @@ def update_dropdown_states(mode: str, start_date: str, end_date: str) -> list:
 
     elif mode == 'd_specs':
         if start is not None and end is not None:
-            return [{'label': i.title(), 'value': i} for i in orion_df.loc[start : end].id.values]
+            return [{'label': i.title(), 'value': i} for i in df.loc[start : end].id.values]
 
 
 @app.callback(
     dash.dependencies.Output('graph1', 'figure'),
     [
+        dash.dependencies.Input('dataframe', 'children'),
         dash.dependencies.Input('date-range-picker', 'start_date'),
         dash.dependencies.Input('date-range-picker', 'end_date'),
         dash.dependencies.Input('dropdown_states', 'value'),
-        dash.dependencies.Input('radio_states', 'value')
+        dash.dependencies.Input('radio_states', 'value'),
     ]
 )
-def update_graph1(start_date: str, end_date: str, in_focus: list, mode: str) -> dict:
+def update_graph1(json_df, start_date, end_date, in_focus, mode):
     '''
     '''
+    # sets 'created_at' as DatetimeIndex (necessary for the auxiliary methods in aux_methods.py)
+    df = pd.read_json(json_df)
+    df.set_index('created_at', inplace=True)
+    df.sort_index(kind='mergesort', inplace=True) 
+    
     # transform into datetime.date object
     start = dt.strptime(start_date, '%Y-%m-%d')
     end = dt.strptime(end_date, '%Y-%m-%d')
 
     if mode == 'f_rate':
-        return aux.update_barplot(orion_df, start, end, in_focus)
+        return aux.update_barplot(df, start, end, in_focus)
 
     elif mode == 'd_specs':
-        return aux.update_windroseplot(orion_df, start, end, in_focus)
+        return aux.update_windroseplot(df, start, end, in_focus)
 
 
 @app.callback(
     dash.dependencies.Output('click-data', 'children'),
-    [
-        dash.dependencies.Input('graph1', 'clickData')
-    ]
+    [ dash.dependencies.Input('graph1', 'clickData')]
 )
 def display_click_data(clickData):
     return json.dumps(clickData, indent=2)
 
+#@app.callback(
+#    Output("file-list", "children"),
+#    [Input("upload-data", "filename"), Input("upload-data", "contents")],
+#)
+#def update_output(uploaded_filenames, uploaded_file_contents):
+#    """Save uploaded files and regenerate the file list."""
+#
+#    if uploaded_filenames is not None and uploaded_file_contents is not None:
+#        for name, data in zip(uploaded_filenames, uploaded_file_contents):
+#            save_file(name, data)
+#
+#    files = uploaded_files()
+#    if len(files) == 0:
+#        return [html.Li('No files yet!')]
+#    else:
+#        return [html.Li(file_download_link(filename)) for filename in files]
+
 @app.callback(
-    Output("file-list", "children"),
-    [Input("upload-data", "filename"), Input("upload-data", "contents")],
+    [Output('dataframe', 'children')],
+    [Input('upload-data', 'filename'), Input('upload-data', 'contents')],
 )
-def update_output(uploaded_filenames, uploaded_file_contents):
-    """Save uploaded files and regenerate the file list."""
+def parse_inputfiles(uploaded_filenames: list, uploaded_files_content: list) -> pd.DataFrame:
+    if uploaded_filenames is not None and uploaded_files_content is not None:
+        if all([x.rsplit('.',1)[1] == 'txt' for x in uploaded_filenames]):
+            for name, data in zip(uploaded_filenames, uploaded_files_content):
+                save_file(name, data)
 
-    if uploaded_filenames is not None and uploaded_file_contents is not None:
-        for name, data in zip(uploaded_filenames, uploaded_file_contents):
-            save_file(name, data)
-
-    files = uploaded_files()
-    if len(files) == 0:
-        return [html.Li("No files yet!")]
+            try:
+                return aux.load_testresults_todataframe('tmp/').to_json()
+            except Exception as e:
+                print('PARSE_NEWINPUT_ERROR:', e)
+                return pd.DataFrame().to_json
     else:
-        return [html.Li(file_download_link(filename)) for filename in files]
+        try:
+            return aux.load_testresults_todataframe('tmp/').to_json()
+
+        except Exception as e:
+            print('PARSE_OLDINPUT_ERROR:', e)
+            return pd.DataFrame().to_json()
+
 
 # @app.callback(
 #     dash.dependencies.Output('stats-in-daterange', 'figure'),

@@ -236,8 +236,10 @@ def parse_benchmark_state(df):
 
     return list_of_states
 
-def load_testresults_todataframe(path):
+def load_testresults_todataframe(path, is_csv=False):
     '''
+    FUTURE feature:
+        handle single files (txt, csv and json)
     '''
     # parses the text files into a list of dictionaries that will be used to create the dataframe
     list_of_dicts = []
@@ -264,10 +266,6 @@ def load_testresults_todataframe(path):
     
     # extends the dataframe to have columns states (the number of failed tests if any, or passed if none)
     df['state'] = parse_benchmark_state(df)
-
-    # sets 'created_at' as DatetimeIndex
-    df.set_index('created_at', inplace=True)
-    df.sort_index(kind='mergesort', inplace=True) 
 
     return df
 
