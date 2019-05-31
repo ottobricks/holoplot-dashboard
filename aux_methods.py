@@ -276,7 +276,7 @@ def load_testresults_todataframe(path, is_csv=False):
 def update_windroseplot(in_df: pd.DataFrame, start: dt.date, end: dt.date, in_focus: Any) -> dict:
     '''
     '''
-    colors = ['green', 'orangered', 'deepskyblue', 'darkviolet', 'peru']
+    colors = dict(passed='#009f00', failed_1='#ebaca2', failed_2='#e0907a', failed_3='#ce6a6b', failed_all='#ba4c49', nan='#4a919e')
 
     end = end + timedelta(days=1)
 
@@ -293,41 +293,39 @@ def update_windroseplot(in_df: pd.DataFrame, start: dt.date, end: dt.date, in_fo
     return {
         'data': [
             go.Scatterpolar(
-                r = [10*x for x in np.random.rand(len(df.loc[df.state==state]))],
+                r = [x*2 for x in range(5, len(df.loc[df.state==state])+5)],
                 theta = [360*x for x in np.random.rand(len(df.loc[df.state==state]))],
-                text=[str(x) for x in df.loc[df.state==state, 'id'].values],
+                text=['Id: {}'.format(str(x)) for x in df.loc[df.state==state, 'id'].values],
+                hoverinfo = 'text',
                 name=state,
                 mode = 'markers',
                 marker = dict(
-                    color = color,
+                    color = colors[state],
                     size = 20,
-                    opacity=0.7,
+                    opacity=0.75,
                     line = dict(
-                        color = "white"
+                        color = "black"
                     ),
                 ),
-            ) for (state, color) in zip(df.state.unique(), colors)
+            ) for state in df.state.unique()
         ],
         'layout': go.Layout(
-            title='Test Summary from {} to {} {}'.format(start.strftime('%d %b'), end.day-1, end.strftime('%b, %Y')),
-            font=dict(
-                size=18,
-            ),
+            title='Orion Devices',
+            font=dict(size=18),
             hoverlabel=dict(namelength=20),
             showlegend=True,
-            legend=dict(
-                font=dict(
-                    size=16
-                )
-            ),
+            legend=dict(font=dict(size=16)),
+            autosize=False,
+            width=1700,
+            height=800,
             polar = dict(
                 domain = dict(
                     x = [0, 1],
                     y = [0, 1]
                 ),
-                bgcolor = "#344b52",
+                bgcolor = 'rgba(74, 145, 158, 0)',
                 angularaxis = dict(
-                    tickwidth = 2,
+                    tickwidth = 0,
                     linewidth = 3,
                     layer = "below traces",
                     #tickvals=,
@@ -341,25 +339,24 @@ def update_windroseplot(in_df: pd.DataFrame, start: dt.date, end: dt.date, in_fo
 
                 ),
                 radialaxis = dict(
-                    range = [0, 11],
-                    showline = True,
-                    linewidth = 2,
-                    tickwidth = 2,
-                    gridcolor = "white",
+                    autorange=True,
+                    showline = False,
+                    linewidth = 0,
+                    tickwidth = 0,
                     gridwidth = 2,
-                    showgrid=False,
+                    showgrid=True,
                     showticklabels=False,
                 ),
-                    sector = [0, 180],
+                    sector = [0, 360],
             ),
-            paper_bgcolor = "#f5f5f5",
+            paper_bgcolor = 'rgba(0,0,0,0)',
         )
     }
 
 def update_barplot(in_df: pd.DataFrame, start: dt.date, end: dt.date, in_focus: Any) -> dict:
     '''
     '''
-    colors = ['green', 'orangered', 'deepskyblue', 'darkviolet', 'peru']
+    colors = dict(passed='#bed3c3', failed_1='#ebaca2', failed_2='#e0907a', failed_3='#ce6a6b', failed_all='#ba4c49', nan='#4a919e')
 
     end = end + timedelta(days=1)
     
@@ -400,16 +397,14 @@ def update_barplot(in_df: pd.DataFrame, start: dt.date, end: dt.date, in_focus: 
                 #x = overall_series[state].index,
                 x = [x.strftime('%b %d') for x in np.unique(overall_series[state].index.date)],
                 y = overall_series[state].values,
-                text = overall_series[state].values,
+                text = [str(x) for x in overall_series[state].values],
+                hoverinfo = 'text',
                 textposition = 'auto',
                 opacity=1,
-                marker=dict(
-                    color=color,
-
-                ),
+                marker=dict(color=colors[state]),
                 name=state,
                 
-            ) for (state, color) in zip(overall_series.keys(), colors)
+            ) for state in overall_series.keys()
     ]
     if not in_focus or (any(['failed' in x for x in in_focus]) and any(['passed' in x for x in in_focus])):
         my_data.extend([
@@ -423,7 +418,8 @@ def update_barplot(in_df: pd.DataFrame, start: dt.date, end: dt.date, in_focus: 
                     type='data',
                     array=[std]*len(list(fail_rate.values())),
                     visible=True
-                )
+                ),
+                marker=dict(color='#c97b42')
 
             ),
 
@@ -437,6 +433,8 @@ def update_barplot(in_df: pd.DataFrame, start: dt.date, end: dt.date, in_focus: 
             size=15,
             color='#7f7f7f'
         ),
+        autosize=False,
+        height=700,
         hoverlabel=dict(namelength=35),
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
@@ -456,19 +454,17 @@ def update_barplot(in_df: pd.DataFrame, start: dt.date, end: dt.date, in_focus: 
             tickfont=dict(
                 color='#7f7f7f'
             ),
-            domain=[0, 1],
+            domain=[0, .9],
             type='log',
             autorange=True,
             showgrid=False,
             showline=False,
             showticklabels=False,
-            
-
         ),
         yaxis2=dict(
             side='right',
             #overlaying='y',
-            domain=[0.7, 1],
+            domain=[.8,1],
             titlefont=dict(
                 color='#7f7f7f'
             ),
