@@ -106,8 +106,4 @@ venv.bak/
 #vscode
 .vscode/
 
-# Data
-Data/
-tmp/
-
 logfile
