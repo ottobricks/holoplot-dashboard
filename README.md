@@ -38,12 +38,17 @@ It will be quite apparent that working with front-end development is not yet an 
 
 
 ## How to run it
-Really, it's all too simple if you rock a Linux machine. It's as simple as:
+Really, it's all too simple if you rock a Linux machine. If it's your first time running:
     
     cd ~/path-where-to-install-dashboard/
     git clone https://github.com/ottok92/holoplot-dashboard.git orion_dashboard
-    bash orion_dashboard/install.sh
+    bash orion_dashboard/run.sh
+    
+But if you've already got the dashboard on your machine, just run:
+    
+    bash ~/path-to-dashboard/orion_dashboard/run.sh
     
 Voilà, your browser will be started on the dashboard page (you might have to hit reload just to tell it to wake up) and you are set to take a look at how those nice Orion speakers are doing! Be sure to upload new files to keep yourself up to date (they will be stored for you so that you don't need to upload them again :grin:)
 
-Instructions for Windows will follow briefly
+Regarding Windows, it seems things aren't as easy (who would've guessed?! hahaha).
+I should be posting soon how to go about it.
