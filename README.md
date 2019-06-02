@@ -37,7 +37,7 @@ Now, back to the elephant in the room. How can I make this dashboard run for mul
 It will be quite apparent that working with front-end development is not yet an expertise of mine. On the other hand, there is nothing that is not worthless to learn about, and this project has been a great opportunity to brush up on my CSS and fight a bit with js. In the end, Dash helped a lot by bringing the MVC stack a bit closer to what I am used to, while being challenging enough to keep one's interest. That's the right recipe for growing! In future versions, it would be necessary to modularize more the code and get rid of those inline CSS monsters.
 
 
-## How to run it
+## How to run it:
 Really, it's all too simple if you rock a Linux machine. If it's your first time running:
     
     cd ~/path-where-to-install-dashboard/
@@ -52,3 +52,6 @@ Voilà, your browser will be started on the dashboard page (you might have to hi
 
 Regarding Windows, it seems things aren't as easy (who would've guessed?! hahaha).
 I should be posting soon how to go about it.
+
+## How to kill it:
+Go back to the terminal where you ran 'bash ./run.sh' and press the combination of keys <Ctr+c> to kill the running dashboard
