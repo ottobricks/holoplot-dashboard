@@ -1,7 +1,7 @@
 #!/bin/bash
 
 if command -v python3 &>/dev/null; then
-	if [ ! -d "./holoplot" ]; then
+	if [ ! -d "./holoplot_venv/" ]; then
 		echo Creating Virtual Environment for the dashboard...
 		python3 -m venv holoplot_venv
 		. ./holoplot_venv/bin/activate
