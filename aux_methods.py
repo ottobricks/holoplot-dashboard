@@ -383,7 +383,7 @@ def update_barplot(in_df: pd.DataFrame, start: dt.date, end: dt.date, in_focus: 
             fail_n = sum([y for (x,y) in zip(df[d].state.value_counts().index, df[d].state.value_counts().values) if 'fail' in x])
 
             if df[d].state.value_counts()['passed'] > 0:
-                fail_rate[date.strftime('%b %d')] = fail_n  / (df[d].state.value_counts()['passed'] + fail_n)
+                fail_rate[date.strftime('%b %d')] = (fail_n  / (df[d].state.value_counts()['passed'] + fail_n))*100
             
             else:
                 fail_rate[date] = 1
@@ -417,8 +417,10 @@ def update_barplot(in_df: pd.DataFrame, start: dt.date, end: dt.date, in_focus: 
                 text=[(re.search(r'(?<=\.)(\d){2}', str(x)).group(0)+'% ± '+str(y)) for (x, y) in zip(list(fail_rate.values()), [std]*len(list(fail_rate.values())))],
                 yaxis='y2',
                 error_y=dict(
-                    type='data',
-                    array=[std]*len(list(fail_rate.values())),
+                    type='percent',
+                    value=std,
+                    #type='data',
+                    #array=[std]*len(list(fail_rate.values())),
                     visible=True
                 ),
                 marker=dict(color='#c97b42')
