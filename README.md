@@ -42,6 +42,8 @@ This dashboard contains three main widgets:
 2. A file uploader box into which multiple files can be dragged and dropped, or picked with the O.S. file manager (not tested on windows yet);
 3. A multi selection box to pick specific devices based on their serial number. Their results are displayed in a table (full set of features) and an accompanying polar chart. Results are also displayed if an element is clicked in the chart
 
+![alt text](https://github.com/ottok92/holoplot-dashboard/blob/master/assets/Screenshot%20from%202019-07-30%2011-46-31.png?raw=true "Logo Title Text 1")
+
 ## Challenges in development
 These were the 3 major pain points in the development of this dashboard:
 1. Parsing the data, fixing errors and handling exceptions;
