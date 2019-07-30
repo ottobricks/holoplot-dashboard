@@ -21,8 +21,8 @@ The files looks like this, with added information in parenthesis:
     15.10.2018 11.59.51         (the precise timestamp of the test)
     UNIT N. F090-00575 GOOD     (the speaker serial number and overall result, again)
 
-It is your task to analyse the given files and then create a dashboard or tool that allows
-us to visualise the results. The minimum of features this tool needs to provide are:
+It is your task to analyze the given files and then create a dashboard or tool that allows
+us to visualize the results. The minimum of features this tool needs to provide are:
 * Allow the user to choose a date and show all speakers with their 5 results
 (overall, response, polarity, rub+buzz, thd)
 * Allow the user to specify a specific serial number and show the 5 results (overall,
@@ -53,19 +53,19 @@ These were the 3 major pain points in the development of this dashboard:
 ### 1. The Data
 This was a rather interesting task. Upfront, it seemed like the dataset was quite simple, with few 'columns' and single-level index dependency. Nevertheless, further exploration brought out some holes in the dataset.
 
-First, the fact that some files had irregular or missing entries (e.g., 'Response go od') made it necesary to dig deeper and implement custom parsing methods to handle such exceptions.
+First, the fact that some files had irregular or missing entries (e.g., 'Response go od') made it necessary to dig deeper and implement custom parsing methods to handle such exceptions.
 For instance, the method `def parse_test_results(fname: str) -> list` handles the following cases while reading the input files:
 
 1. the overall result is missing but the other 4 results are present, it infers the overall result;
 2. any of the 4 results is missing but the overall is present, it infers the missing features;
 3. the serial number is missing, fetches it from the file name;
 
-A number of other mthods have been implemented to catch exceptions and handle them. Due to the time constraint, they have been shallowly doccumented. Intuitive naming conventions are of help, though.
+A number of other methods have been implemented to catch exceptions and handle them. Due to the time constraint, they have been shallowly documented. Intuitive naming conventions are of help, though.
 
 ### 2. The Infrastructure
 It's easy to forget that we do not implement systems to be used only by us. Writing code that is not parallelizable is a trap that many fall into. And honestly, it wasn't until half-way through the implementation that I realized my design had this flaw. No worries, the challenge got me even more interested in finding a solution. For that, there were a few priorities I wanted to keep in check. No proprietary software, no resource hungry frameworks and no cloud-based solutions could be used. HA! That sounds like a party. Before I comment on how I went about making my code parallelizable, let me get briefly into the tooling.
 
-So Django was out of the game, in favor of pure-Python+Flask. I did consider going for that good old C stack, but homestly I was a bit too rusty to get it done in one week. Also, keep in mind that Cython can give Python some of that good C power under the hood. Now, charts. Matplotlib or Plotly? I went with Plotly due to more interactive plots with less code (not to say that it's easier, though). For the front-end, I decided to try out a Python module that I've had an eye on for a while, Dash by Plotly (what a coincidence!). One might say that Dash is a parser of Python into the MVC stack, with the added benefit of having Plotly bundled with it. And that's it. I got the tooling, the editor (VSCode and Vim), the challenge and a tight schedule with the upcoming end-of-semester craze at the university. Nothing that good coffee and good music can't carry along.
+So Django was out of the game, in favor of pure-Python+Flask. I did consider going for that good old C stack, but honestly I was a bit too rusty to get it done in one week. Also, keep in mind that Cython can give Python some of that good C power under the hood. Now, charts. Matplotlib or Plotly? I went with Plotly due to more interactive plots with less code (not to say that it's easier, though). For the front-end, I decided to try out a Python module that I've had an eye on for a while, Dash by Plotly (what a coincidence!). One might say that Dash is a parser of Python into the MVC stack, with the added benefit of having Plotly bundled with it. And that's it. I got the tooling, the editor (VSCode and Vim), the challenge and a tight schedule with the upcoming end-of-semester craze at the university. Nothing that good coffee and good music can't carry along.
 
 Now, back to the elephant in the room. How can I make this dashboard run for multiple users without the actions of one interfering with others? The solution I proposed here was to do the expensive computation on the dataset once, keep it in the browser (aka. let the operating system handle it in the RAM or Cache) and share it as a preprocessed json whenever a widget requested it. Is this the best way to do it? No, it is not because it's not too scalable. But it is perfect for the application at hand and the ease of setting up once it's done. No need for shared or complex filesystems. You pretty much install the dependencies (which are not many) and you are good to go.
 
@@ -86,8 +86,7 @@ But if you've already got the dashboard on your machine, just run:
     
 Voilà, your browser will be started on the dashboard page (you might have to hit reload just to tell it to wake up) and you are set to take a look at how those nice Orion speakers are doing! Be sure to upload new files to keep yourself up to date (they will be stored for you so that you don't need to upload them again :grin:)
 
-Regarding Windows, it seems things aren't as easy (who would've guessed?! hahaha).
-I should be posting soon how to go about it.
+Regarding Windows, it seems things aren't as easy. I should be posting soon how to go about it.
 
 ## How to kill it:
 Go back to the terminal where you ran 'bash ./run.sh' and press the combination of keys <Ctr+c> to kill the running dashboard
