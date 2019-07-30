@@ -1,7 +1,41 @@
 # DataOps Engineer case
 ### Applicant - Otto von Sperling
 
-## Overview
+## Task Guidelines
+HOLOPLOT is at the beginning of the manufacturing process of new Pro Audio devices. Having
+recently launched the ORION series, the company is striving to ramp up production.
+The manufacturing of the components is done externally, but the final assembly and Quality
+Assurance is taking place in Berlin. The QA process is supported by various measurement
+tools that are used at different stages throughout the process.
+During the QA process for the incoming loudspeakers we test them with a tool called CLIO.
+This testing outputs the analysis results of each speaker test in a set of data files. You
+can find a collection of these files in the Data folder.
+
+The files looks like this, with added information in parenthesis:
+
+    1 GOOD SIN                  (this is the overall test result of the speaker)
+        Response GOOD           (this is the result of the response sub-test)
+        Polarity GOOD           (this is the result of the polarity sub-test)
+        RUB+BUZZ GOOD           (this is the result of the rub and buzz sub-test)
+        THD GOOD                (this is the result of the total harmonic distortion sub-test)
+    15.10.2018 11.59.51         (the precise timestamp of the test)
+    UNIT N. F090-00575 GOOD     (the speaker serial number and overall result, again)
+
+It is your task to analyse the given files and then create a dashboard or tool that allows
+us to visualise the results. The minimum of features this tool needs to provide are:
+* Allow the user to choose a date and show all speakers with their 5 results
+(overall, response, polarity, rub+buzz, thd)
+* Allow the user to specify a specific serial number and show the 5 results (overall,
+response, polarity, rub+buzz, thd) for that speaker
+* Show a summary of number of good speakers, number of bad speakers, the average
+failure rate and the standard deviation of the failure rate for a given date range.
+* Provide an additional set of data files and process them.
+
+
+Please provide ample information on how you set up the tool and how we can best evaluate
+your solution.
+
+## Solution Overview
 This dashboard contains three main widgets:
 
 1. A multi selection box to pick the category of overall results within a given date range, and its accompanying chart;
